@@ -1,0 +1,36 @@
+FROM node:18-alpine AS base
+
+# Instalar pnpm
+RUN npm install -g pnpm@8.15.0
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de configuración del monorepo
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY turbo.json ./
+
+# Copiar todos los package.json de los workspaces
+COPY apps/web/package.json ./apps/web/
+COPY apps/api/package.json ./apps/api/
+COPY packages/*/package.json ./packages/
+
+# Instalar dependencias
+RUN pnpm install --frozen-lockfile
+
+# Copiar código fuente
+COPY . .
+
+# Target para desarrollo del frontend
+FROM base AS web
+WORKDIR /app
+EXPOSE 3000
+CMD ["pnpm", "--filter", "web", "dev"]
+
+# Target para desarrollo del backend
+FROM base AS api
+WORKDIR /app
+EXPOSE 8787
+CMD ["pnpm", "--filter", "api", "dev"]
+
+# Made with Bob

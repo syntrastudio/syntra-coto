@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # Frontend Next.js
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+      target: web
+    container_name: paseo-coto-web
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../apps/web:/app/apps/web
+      - ../packages:/app/packages
+      - /app/node_modules
+      - /app/apps/web/node_modules
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8787
+    command: pnpm --filter web dev
+    networks:
+      - paseo-coto-network
+
+  # Base de datos SQLite (para desarrollo local)
+  # Nota: En producción se usará Cloudflare D1
+  db:
+    image: alpine:latest
+    container_name: paseo-coto-db
+    volumes:
+      - db-data:/data
+    command: tail -f /dev/null
+    networks:
+      - paseo-coto-network
+
+volumes:
+  db-data:
+
+networks:
+  paseo-coto-network:
+    driver: bridge
+
+# Made with Bob
