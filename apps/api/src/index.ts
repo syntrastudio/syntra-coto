@@ -1,66 +1,70 @@
 import { Hono } from 'hono';
-import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
+import { corsMiddleware } from './middleware/cors.middleware';
+import { errorHandler } from './middleware/error.middleware';
 
-// Tipos para Cloudflare Workers
-type Bindings = {
-  DB: D1Database;
-  STORAGE?: R2Bucket;
-  CACHE?: KVNamespace;
-  JWT_SECRET: string;
-};
+// Importar rutas
+import auth from './routes/auth';
+import properties from './routes/properties';
+import residents from './routes/residents';
+import fees from './routes/fees';
+import payments from './routes/payments';
+import vehicles from './routes/vehicles';
+import users from './routes/users';
+import auditLogs from './routes/audit-logs';
 
-const app = new Hono<{ Bindings: Bindings }>();
+const app = new Hono();
 
 // Middlewares globales
 app.use('*', logger());
 app.use('*', prettyJSON());
-app.use(
-  '*',
-  cors({
-    origin: ['http://localhost:3000', 'https://paseo-coto-tonala.com'],
-    credentials: true,
-  })
-);
+app.use('*', corsMiddleware());
 
 // Ruta de health check
 app.get('/', (c) => {
   return c.json({
-    message: 'Paseo Coto Tonalá API',
+    message: 'Syntra Coto API - Paseo Coto Tonalá',
     version: '1.0.0',
     status: 'healthy',
+    timestamp: new Date().toISOString(),
   });
 });
 
-// Rutas de la API
+// Health check detallado
 app.get('/api/health', (c) => {
-  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+  return c.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    database: c.env.DB ? 'connected' : 'disconnected',
+    environment: c.env.ENVIRONMENT || 'unknown',
+  });
 });
 
-// Aquí se importarán y montarán las rutas de los módulos
-// app.route('/api/auth', authRoutes);
-// app.route('/api/users', userRoutes);
-// app.route('/api/properties', propertyRoutes);
-// etc...
+// Montar rutas de la API
+app.route('/api/auth', auth);
+app.route('/api/properties', properties);
+app.route('/api/residents', residents);
+app.route('/api/fees', fees);
+app.route('/api/payments', payments);
+app.route('/api/vehicles', vehicles);
+app.route('/api/users', users);
+app.route('/api/audit-logs', auditLogs);
 
 // Manejo de rutas no encontradas
 app.notFound((c) => {
-  return c.json({ error: 'Not Found', path: c.req.path }, 404);
-});
-
-// Manejo de errores
-app.onError((err, c) => {
-  console.error(`Error: ${err.message}`);
   return c.json(
     {
-      error: 'Internal Server Error',
-      message: err.message,
+      success: false,
+      error: 'Ruta no encontrada',
+      path: c.req.path,
+      method: c.req.method,
     },
-    500
+    404
   );
 });
 
-export default app;
+// Manejo global de errores
+app.onError(errorHandler);
 
-// Made with Bob
+export default app;

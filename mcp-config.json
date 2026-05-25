@@ -1,0 +1,94 @@
+{
+  "mcpServers": {
+    "cloudflare": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@cloudflare/mcp-server-cloudflare"
+      ],
+      "env": {
+        "CLOUDFLARE_ACCOUNT_ID": "409a158b8e894ec37f2d6e6357fca2d2",
+        "CLOUDFLARE_API_TOKEN": "${CLOUDFLARE_API_TOKEN}"
+      }
+    }
+  },
+  "project": {
+    "name": "syntra-coto",
+    "description": "Sistema de gestión para Paseo Coto Tonalá",
+    "repository": "https://github.com/syntrastudio/syntra-coto",
+    "domain": "coto.syntrastudio.dev"
+  },
+  "cloudflare": {
+    "account_id": "409a158b8e894ec37f2d6e6357fca2d2",
+    "account_name": "La Casa de los Abuelos",
+    "resources": {
+      "d1": {
+        "database_name": "syntra-coto-db",
+        "database_id": "7f4d6f52-a406-4ae9-93a4-f5b80c21b8f2",
+        "binding": "DB",
+        "region": "WNAM"
+      },
+      "r2": {
+        "bucket_name": "syntra-coto-storage",
+        "binding": "STORAGE",
+        "storage_class": "Standard"
+      },
+      "kv": {
+        "namespace_title": "CACHE",
+        "namespace_id": "4d3fb797cfbf4f5c81f4fe3bebc84279",
+        "binding": "CACHE"
+      },
+      "workers": {
+        "name": "syntra-coto-api",
+        "dev_name": "syntra-coto-api-dev",
+        "routes": [
+          {
+            "pattern": "coto.syntrastudio.dev/api/*",
+            "zone_name": "syntrastudio.dev"
+          }
+        ]
+      },
+      "pages": {
+        "project_name": "syntra-coto",
+        "production_branch": "main",
+        "domains": [
+          "coto.syntrastudio.dev"
+        ]
+      }
+    }
+  },
+  "deployment": {
+    "api": {
+      "directory": "apps/api",
+      "command": "wrangler deploy",
+      "config": "apps/api/wrangler.toml"
+    },
+    "web": {
+      "directory": "apps/web",
+      "framework": "Next.js",
+      "build_command": "pnpm build",
+      "output_directory": ".next",
+      "node_version": "18"
+    }
+  },
+  "environment_variables": {
+    "required": [
+      "CLOUDFLARE_API_TOKEN",
+      "JWT_SECRET",
+      "ENCRYPTION_KEY"
+    ],
+    "optional": [
+      "SMTP_HOST",
+      "SMTP_PORT",
+      "SMTP_USER",
+      "SMTP_PASSWORD",
+      "WEBHOOK_URL"
+    ]
+  },
+  "notes": {
+    "setup_date": "2026-05-25",
+    "database_tables": 17,
+    "initial_properties": 130,
+    "initial_users": 1
+  }
+}

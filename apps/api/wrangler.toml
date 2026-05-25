@@ -1,30 +1,34 @@
-name = "paseo-coto-tonala-api"
+name = "syntra-coto-api"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
-node_compat = true
+compatibility_flags = ["nodejs_compat"]
+account_id = "409a158b8e894ec37f2d6e6357fca2d2"
 
 [env.development]
-name = "paseo-coto-tonala-api-dev"
+name = "syntra-coto-api-dev"
 
 [env.production]
-name = "paseo-coto-tonala-api"
+name = "syntra-coto-api"
+routes = [
+  { pattern = "coto.syntrastudio.dev/api/*", zone_name = "syntrastudio.dev" }
+]
 
 # D1 Database binding
 [[d1_databases]]
 binding = "DB"
-database_name = "paseo-coto-tonala"
-database_id = "" # Se configurará después de crear la base de datos
+database_name = "syntra-coto-db"
+database_id = "7f4d6f52-a406-4ae9-93a4-f5b80c21b8f2"
 
 # Variables de entorno (usar wrangler secret para valores sensibles)
 [vars]
 ENVIRONMENT = "development"
 
-# R2 Storage binding (opcional, para documentos)
+# R2 Storage binding (para documentos y archivos)
 [[r2_buckets]]
 binding = "STORAGE"
-bucket_name = "paseo-coto-tonala-storage"
+bucket_name = "syntra-coto-storage"
 
-# KV namespace binding (opcional, para caché)
+# KV namespace binding (para caché)
 [[kv_namespaces]]
 binding = "CACHE"
-id = "" # Se configurará después de crear el namespace
+id = "4d3fb797cfbf4f5c81f4fe3bebc84279"
