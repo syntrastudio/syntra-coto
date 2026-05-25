@@ -1,0 +1,30 @@
+name = "paseo-coto-tonala-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+node_compat = true
+
+[env.development]
+name = "paseo-coto-tonala-api-dev"
+
+[env.production]
+name = "paseo-coto-tonala-api"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "paseo-coto-tonala"
+database_id = "" # Se configurará después de crear la base de datos
+
+# Variables de entorno (usar wrangler secret para valores sensibles)
+[vars]
+ENVIRONMENT = "development"
+
+# R2 Storage binding (opcional, para documentos)
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "paseo-coto-tonala-storage"
+
+# KV namespace binding (opcional, para caché)
+[[kv_namespaces]]
+binding = "CACHE"
+id = "" # Se configurará después de crear el namespace

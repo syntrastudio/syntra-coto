@@ -1,0 +1,37 @@
+{
+  "name": "paseo-coto-tonala",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de administración del fraccionamiento Paseo Coto Tonalá",
+  "author": "Paseo Coto Tonalá",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=web",
+    "dev:api": "turbo run dev --filter=api",
+    "build": "turbo run build",
+    "build:web": "turbo run build --filter=web",
+    "build:api": "turbo run build --filter=api",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "cd packages/database && pnpm run generate",
+    "db:migrate": "cd packages/database && pnpm run migrate",
+    "db:studio": "cd packages/database && pnpm run studio",
+    "db:seed": "cd packages/database && pnpm run seed"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "prettier": "^3.2.4",
+    "turbo": "^1.12.0",
+    "typescript": "^5.3.3"
+  }
+}

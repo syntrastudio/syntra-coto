@@ -1,0 +1,34 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "tsc",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist .wrangler node_modules"
+  },
+  "dependencies": {
+    "hono": "^3.12.0",
+    "@hono/zod-validator": "^0.2.1",
+    "zod": "^3.22.4",
+    "drizzle-orm": "^0.29.3",
+    "jose": "^5.2.0",
+    "bcryptjs": "^2.4.3",
+    "date-fns": "^3.0.0",
+    "shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "@types/bcryptjs": "^2.4.6",
+    "wrangler": "^3.24.0",
+    "typescript": "^5.3.3",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "drizzle-kit": "^0.20.10"
+  }
+}
