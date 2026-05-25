@@ -10,7 +10,7 @@ import { es } from 'date-fns/locale';
 
 export default function PropertyDetailPage() {
   const params = useParams();
-  const propertyId = Number(params.id);
+  const propertyId = params.id as string;
 
   const { data: property, isLoading: propertyLoading } = useQuery({
     queryKey: ['property', propertyId],
@@ -47,7 +47,7 @@ export default function PropertyDetailPage() {
   const { data: vehiclesData } = useQuery({
     queryKey: ['property-vehicles', propertyId],
     queryFn: async () => {
-      const response = await apiClient.get(`/vehicles/property/${propertyId}`);
+      const response = await apiClient.getVehiclesByProperty(propertyId);
       return response.data;
     },
   });
@@ -71,18 +71,18 @@ export default function PropertyDetailPage() {
     );
   }
 
-  const statusColors = {
-    occupied: 'bg-green-100 text-green-800',
-    vacant: 'bg-gray-100 text-gray-800',
-    for_sale: 'bg-blue-100 text-blue-800',
-    for_rent: 'bg-purple-100 text-purple-800',
+  const statusColors: Record<string, string> = {
+    ocupada: 'bg-green-100 text-green-800',
+    desocupada: 'bg-gray-100 text-gray-800',
+    en_venta: 'bg-blue-100 text-blue-800',
+    en_renta: 'bg-purple-100 text-purple-800',
   };
 
-  const statusLabels = {
-    occupied: 'Ocupada',
-    vacant: 'Vacía',
-    for_sale: 'En Venta',
-    for_rent: 'En Renta',
+  const statusLabels: Record<string, string> = {
+    ocupada: 'Ocupada',
+    desocupada: 'Desocupada',
+    en_venta: 'En Venta',
+    en_renta: 'En Renta',
   };
 
   return (
@@ -215,17 +215,17 @@ export default function PropertyDetailPage() {
               <Car className="h-6 w-6 text-gray-600" />
               <h2 className="text-xl font-semibold text-gray-900">Vehículos Registrados</h2>
             </div>
-            {vehiclesData?.data && (
+            {vehiclesData && (
               <span className="text-sm text-gray-600">
-                {vehiclesData.data.active_count || 0}/4 vehículos activos
+                {vehiclesData.filter((v) => v.status === 'activo').length}/4 vehículos activos
               </span>
             )}
           </div>
         </div>
         <div className="p-6">
-          {vehiclesData?.data?.vehicles && vehiclesData.data.vehicles.length > 0 ? (
+          {vehiclesData && vehiclesData.length > 0 ? (
             <div className="space-y-4">
-              {vehiclesData.data.vehicles.map((vehicle: any) => (
+              {vehiclesData.map((vehicle) => (
                 <div
                   key={vehicle.id}
                   className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
@@ -253,7 +253,7 @@ export default function PropertyDetailPage() {
                   </span>
                 </div>
               ))}
-              {vehiclesData.data.can_add_more && (
+              {vehiclesData.length < 4 && (
                 <Link
                   href="/dashboard/vehicles"
                   className="block text-center py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors"

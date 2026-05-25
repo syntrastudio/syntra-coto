@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { Search, Plus, Edit, Trash2, X, Mail, Phone, Calendar, User, Filter } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, X, Mail, Phone, Calendar, User } from 'lucide-react';
 import type { Resident, CreateResidentInput, UpdateResidentInput } from '@/types';
 
 export default function ResidentsPage() {
@@ -43,7 +43,7 @@ export default function ResidentsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<CreateResidentInput> }) =>
+    mutationFn: ({ id, data }: { id: string; data: UpdateResidentInput }) =>
       apiClient.updateResident(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['residents'] });
@@ -52,7 +52,6 @@ export default function ResidentsPage() {
       alert('✅ Residente actualizado exitosamente');
     },
     onError: (error: Error) => {
-      console.error('❌ Error al actualizar residente:', error);
       alert(`❌ Error al actualizar residente: ${error.message}`);
     },
   });
@@ -82,10 +81,8 @@ export default function ResidentsPage() {
       status: (formData.get('status') as 'activo' | 'inactivo') || 'activo',
     };
 
-    console.log('📤 Enviando residente:', data);
-
     if (editingResident) {
-      updateMutation.mutate({ id: editingResident.id, data });
+      updateMutation.mutate({ id: editingResident.id, data: { ...data, id: editingResident.id } });
     } else {
       createMutation.mutate(data);
     }

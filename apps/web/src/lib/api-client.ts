@@ -9,17 +9,20 @@ import type {
   Resident,
   MonthlyFee,
   Payment,
+  Vehicle,
   DashboardStats,
   CreatePropertyInput,
-  UpdatePropertyInput,
   CreateResidentInput,
   UpdateResidentInput,
   CreatePaymentInput,
   GenerateFeesInput,
+  CreateVehicleInput,
+  UpdateVehicleInput,
   PropertyFilters,
   ResidentFilters,
   FeeFilters,
   PaymentFilters,
+  VehicleFilters,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://syntra-coto-api.lcdla-scheduler.workers.dev';
@@ -127,13 +130,10 @@ class ApiClient {
   }
 
   async createProperty(data: CreatePropertyInput): Promise<ApiResponse<Property>> {
-    console.log('🏠 API Client - Creando propiedad:', data);
-    const response = await this.request<ApiResponse<Property>>('/api/properties', {
+    return this.request<ApiResponse<Property>>('/api/properties', {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    console.log('✅ API Client - Propiedad creada:', response);
-    return response;
   }
 
   async updateProperty(id: string, data: Partial<CreatePropertyInput>): Promise<ApiResponse<Property>> {
@@ -178,13 +178,10 @@ class ApiClient {
   }
 
   async createResident(data: CreateResidentInput): Promise<ApiResponse<Resident>> {
-    console.log('👤 API Client - Creando residente:', data);
-    const response = await this.request<ApiResponse<Resident>>('/api/residents', {
+    return this.request<ApiResponse<Resident>>('/api/residents', {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    console.log('✅ API Client - Residente creado:', response);
-    return response;
   }
 
   async updateResident(id: string, data: UpdateResidentInput): Promise<ApiResponse<Resident>> {
@@ -283,6 +280,54 @@ class ApiClient {
   // Dashboard
   async getDashboardStats(): Promise<ApiResponse<DashboardStats>> {
     return this.request<ApiResponse<DashboardStats>>('/api/dashboard/stats');
+  }
+
+  // Vehículos
+  async getVehicles(
+    page: number = 1,
+    limit: number = 10,
+    filters?: VehicleFilters
+  ): Promise<PaginatedResponse<Vehicle>> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters?.property_id) params.append('property_id', filters.property_id);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.search) params.append('search', filters.search);
+
+    return this.request<PaginatedResponse<Vehicle>>(
+      `/api/vehicles?${params.toString()}`
+    );
+  }
+
+  async getVehicle(id: string): Promise<ApiResponse<Vehicle>> {
+    return this.request<ApiResponse<Vehicle>>(`/api/vehicles/${id}`);
+  }
+
+  async getVehiclesByProperty(propertyId: string): Promise<ApiResponse<Vehicle[]>> {
+    return this.request<ApiResponse<Vehicle[]>>(`/api/properties/${propertyId}/vehicles`);
+  }
+
+  async createVehicle(data: CreateVehicleInput): Promise<ApiResponse<Vehicle>> {
+    return this.request<ApiResponse<Vehicle>>('/api/vehicles', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateVehicle(id: string, data: UpdateVehicleInput): Promise<ApiResponse<Vehicle>> {
+    return this.request<ApiResponse<Vehicle>>(`/api/vehicles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteVehicle(id: string): Promise<ApiResponse<void>> {
+    return this.request<ApiResponse<void>>(`/api/vehicles/${id}`, {
+      method: 'DELETE',
+    });
   }
 }
 

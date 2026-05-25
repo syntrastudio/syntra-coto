@@ -14,12 +14,18 @@ export interface Property {
   id: string;
   house_number: string;
   street: string;
+  block?: string;
   status: 'ocupada' | 'desocupada' | 'en_renta' | 'en_venta';
   owner_id?: string;
   current_resident_id?: string;
   gate_control_1?: string;
   gate_control_2?: string;
   gate_control_3?: string;
+  lot_area?: number;
+  construction_area?: number;
+  owner_name?: string;
+  owner_phone?: string;
+  notes?: string;
   created_at: string;
   updated_at: string;
   // Relaciones populadas
@@ -219,7 +225,7 @@ export interface UpdateResidentInput {
   phone?: string;
   email?: string;
   type?: 'propietario' | 'inquilino';
-  start_date?: string;
+  start_date?: number;
   status?: 'activo' | 'inactivo';
 }
 

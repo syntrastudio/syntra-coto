@@ -6,18 +6,18 @@ interface PropertyCardProps {
   property: Property;
 }
 
-const statusColors = {
-  occupied: 'bg-green-100 text-green-800',
-  vacant: 'bg-gray-100 text-gray-800',
-  for_sale: 'bg-blue-100 text-blue-800',
-  for_rent: 'bg-purple-100 text-purple-800',
+const statusColors: Record<Property['status'], string> = {
+  ocupada: 'bg-green-100 text-green-800',
+  desocupada: 'bg-gray-100 text-gray-800',
+  en_venta: 'bg-blue-100 text-blue-800',
+  en_renta: 'bg-purple-100 text-purple-800',
 };
 
-const statusLabels = {
-  occupied: 'Ocupada',
-  vacant: 'Vacía',
-  for_sale: 'En Venta',
-  for_rent: 'En Renta',
+const statusLabels: Record<Property['status'], string> = {
+  ocupada: 'Ocupada',
+  desocupada: 'Desocupada',
+  en_venta: 'En Venta',
+  en_renta: 'En Renta',
 };
 
 export function PropertyCard({ property }: PropertyCardProps) {

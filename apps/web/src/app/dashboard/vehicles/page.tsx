@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import type { Vehicle, VehicleFilters, CreateVehicleInput, Property } from '@/types';
+import type { Vehicle, VehicleFilters, CreateVehicleInput, UpdateVehicleInput, Property } from '@/types';
 
 export default function VehiclesPage() {
   const queryClient = useQueryClient();
@@ -24,12 +24,7 @@ export default function VehiclesPage() {
   const { data: vehiclesData, isLoading } = useQuery({
     queryKey: ['vehicles', filters],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (filters.property_id) params.append('property_id', filters.property_id);
-      if (filters.status) params.append('status', filters.status);
-      if (filters.search) params.append('search', filters.search);
-      
-      const response = await apiClient.get(`/vehicles?${params.toString()}`);
+      const response = await apiClient.getVehicles(1, 1000, filters);
       return response.data;
     },
   });
@@ -38,34 +33,29 @@ export default function VehiclesPage() {
   const { data: propertiesData } = useQuery({
     queryKey: ['properties'],
     queryFn: async () => {
-      const response = await apiClient.get('/properties?limit=1000');
+      const response = await apiClient.getProperties(1, 1000);
       return response.data;
     },
   });
 
   // Crear vehículo
   const createMutation = useMutation({
-    mutationFn: async (data: CreateVehicleInput) => {
-      const response = await apiClient.post('/vehicles', data);
-      return response.data;
-    },
+    mutationFn: (data: CreateVehicleInput) => apiClient.createVehicle(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       setIsModalOpen(false);
       resetForm();
       alert('Vehículo registrado exitosamente');
     },
-    onError: (error: any) => {
-      alert(error.response?.data?.error || 'Error al registrar vehículo');
+    onError: (error: Error) => {
+      alert(`Error al registrar vehículo: ${error.message}`);
     },
   });
 
   // Actualizar vehículo
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<CreateVehicleInput> }) => {
-      const response = await apiClient.put(`/vehicles/${id}`, data);
-      return response.data;
-    },
+    mutationFn: ({ id, data }: { id: string; data: UpdateVehicleInput }) =>
+      apiClient.updateVehicle(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       setIsModalOpen(false);
@@ -73,22 +63,20 @@ export default function VehiclesPage() {
       resetForm();
       alert('Vehículo actualizado exitosamente');
     },
-    onError: (error: any) => {
-      alert(error.response?.data?.error || 'Error al actualizar vehículo');
+    onError: (error: Error) => {
+      alert(`Error al actualizar vehículo: ${error.message}`);
     },
   });
 
   // Eliminar vehículo
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiClient.delete(`/vehicles/${id}`);
-    },
+    mutationFn: (id: string) => apiClient.deleteVehicle(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       alert('Vehículo eliminado exitosamente');
     },
-    onError: (error: any) => {
-      alert(error.response?.data?.error || 'Error al eliminar vehículo');
+    onError: (error: Error) => {
+      alert(`Error al eliminar vehículo: ${error.message}`);
     },
   });
 
@@ -107,7 +95,10 @@ export default function VehiclesPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingVehicle) {
-      updateMutation.mutate({ id: editingVehicle.id, data: formData });
+      updateMutation.mutate({
+        id: editingVehicle.id,
+        data: { ...formData, id: editingVehicle.id }
+      });
     } else {
       createMutation.mutate(formData);
     }
@@ -133,8 +124,8 @@ export default function VehiclesPage() {
     }
   };
 
-  const vehicles = vehiclesData?.data || [];
-  const properties = propertiesData?.data || [];
+  const vehicles = vehiclesData || [];
+  const properties = propertiesData || [];
 
   return (
     <div className="space-y-6">
