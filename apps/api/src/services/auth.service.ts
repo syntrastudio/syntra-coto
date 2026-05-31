@@ -77,11 +77,13 @@ export async function registerUser(
 }
 
 /**
- * Autentica un usuario y genera tokens
+ * Autentica un usuario por email o teléfono y genera tokens.
+ * `identifier` puede ser una dirección de correo o un teléfono de 10 dígitos
+ * (con o sin formato — el matcher normaliza dígitos).
  */
 export async function loginUser(
   db: D1Database,
-  email: string,
+  identifier: string,
   password: string,
   jwtSecret: string,
   jwtRefreshSecret: string
@@ -91,11 +93,25 @@ export async function loginUser(
   refreshToken: string;
   expiresIn: number;
 }> {
-  // Buscar usuario por email
-  const user = await db
-    .prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL')
-    .bind(email)
-    .first<User>();
+  const looksLikeEmail = identifier.includes('@');
+  let user: User | null = null;
+
+  if (looksLikeEmail) {
+    user = await db
+      .prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL')
+      .bind(identifier.trim().toLowerCase())
+      .first<User>();
+  } else {
+    // Normalizar: solo dígitos
+    const phone = identifier.replace(/\D/g, '');
+    if (phone.length < 10) {
+      throwUnauthorized('Credenciales inválidas');
+    }
+    user = await db
+      .prepare('SELECT * FROM users WHERE phone = ? AND deleted_at IS NULL')
+      .bind(phone)
+      .first<User>();
+  }
 
   if (!user) {
     throwUnauthorized('Credenciales inválidas');

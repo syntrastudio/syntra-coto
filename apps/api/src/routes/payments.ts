@@ -4,11 +4,11 @@
 
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { paymentListQuerySchema, paymentCreateSchema, idParamSchema } from '../utils/validation';
+import { paymentListQuerySchema, paymentCreateSchema, annualPaymentSchema, idParamSchema } from '../utils/validation';
 import { success, created, notFound, paginated, calculatePagination } from '../utils/response';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireAdmin } from '../middleware/role.middleware';
-import { listPayments, getPaymentById, createPayment, getPropertyPayments } from '../services/payments.service';
+import { listPayments, getPaymentById, createPayment, getPropertyPayments, payAnnual } from '../services/payments.service';
 
 const payments = new Hono();
 
@@ -32,8 +32,16 @@ payments.post('/', authMiddleware, requireAdmin(), zValidator('json', paymentCre
   const data = c.req.valid('json');
   const user = c.get('user');
   const db = c.env.DB as D1Database;
-  const payment = await createPayment(db, { ...data, created_by: user?.id });
+  const payment = await createPayment(db, { ...data, created_by: user?.id }, c.env);
   return created(c, payment, 'Pago registrado exitosamente');
+});
+
+payments.post('/annual', authMiddleware, requireAdmin(), zValidator('json', annualPaymentSchema), async (c) => {
+  const data = c.req.valid('json');
+  const user = c.get('user');
+  const db = c.env.DB as D1Database;
+  const result = await payAnnual(db, { ...data, created_by: user?.id }, c.env);
+  return created(c, result, `Pago anual registrado (${result.fees_paid} cuotas liquidadas, bonificación ${result.bonus_months} meses)`);
 });
 
 payments.get('/property/:propertyId', authMiddleware, async (c) => {

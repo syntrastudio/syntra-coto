@@ -57,23 +57,25 @@ export async function listProperties(
 
   const properties = await db
     .prepare(
-      `SELECT 
+      `SELECT
         p.*,
         r_owner.id as owner_resident_id,
-        u_owner.id as owner_user_id,
-        u_owner.full_name as owner_full_name,
-        u_owner.email as owner_email,
-        u_owner.phone as owner_phone,
+        r_owner.full_name as owner_full_name,
+        r_owner.email as owner_email,
+        r_owner.phone as owner_phone,
         r_current.id as current_resident_resident_id,
-        u_current.id as current_resident_user_id,
-        u_current.full_name as current_resident_full_name,
-        u_current.email as current_resident_email,
-        u_current.phone as current_resident_phone
+        r_current.full_name as current_resident_full_name,
+        r_current.email as current_resident_email,
+        r_current.phone as current_resident_phone,
+        COALESCE((SELECT SUM(balance) FROM monthly_fees mf
+                  WHERE mf.property_id = p.id AND mf.deleted_at IS NULL
+                    AND mf.status IN ('pending','partially_paid','overdue')), 0) AS total_owed,
+        (SELECT COUNT(*) FROM monthly_fees mf
+         WHERE mf.property_id = p.id AND mf.deleted_at IS NULL
+           AND mf.status IN ('pending','partially_paid','overdue')) AS pending_fees_count
       FROM properties p
       LEFT JOIN residents r_owner ON p.owner_id = r_owner.id AND r_owner.deleted_at IS NULL
-      LEFT JOIN users u_owner ON r_owner.user_id = u_owner.id AND u_owner.deleted_at IS NULL
       LEFT JOIN residents r_current ON p.current_resident_id = r_current.id AND r_current.deleted_at IS NULL
-      LEFT JOIN users u_current ON r_current.user_id = u_current.id AND u_current.deleted_at IS NULL
       WHERE ${whereClause}
       ORDER BY p.${sortBy} ${sortOrder}
       LIMIT ? OFFSET ?`
@@ -92,35 +94,28 @@ export async function listProperties(
     gate_control_1: row.gate_control_1,
     gate_control_2: row.gate_control_2,
     gate_control_3: row.gate_control_3,
+    credit_balance: row.credit_balance ?? 0,
+    delinquency_status: row.delinquency_status ?? 'al_corriente',
+    total_owed: Number(row.total_owed ?? 0),
+    pending_fees_count: Number(row.pending_fees_count ?? 0),
+    months_overdue: row.months_overdue ?? 0,
     created_at: row.created_at,
     updated_at: row.updated_at,
     deleted_at: row.deleted_at,
     owner: row.owner_resident_id
       ? {
           id: row.owner_resident_id,
-          user_id: row.owner_user_id,
-          user: row.owner_user_id
-            ? {
-                id: row.owner_user_id,
-                full_name: row.owner_full_name,
-                email: row.owner_email,
-                phone: row.owner_phone,
-              }
-            : undefined,
+          full_name: row.owner_full_name,
+          email: row.owner_email,
+          phone: row.owner_phone,
         }
       : undefined,
     current_resident: row.current_resident_resident_id
       ? {
           id: row.current_resident_resident_id,
-          user_id: row.current_resident_user_id,
-          user: row.current_resident_user_id
-            ? {
-                id: row.current_resident_user_id,
-                full_name: row.current_resident_full_name,
-                email: row.current_resident_email,
-                phone: row.current_resident_phone,
-              }
-            : undefined,
+          full_name: row.current_resident_full_name,
+          email: row.current_resident_email,
+          phone: row.current_resident_phone,
         }
       : undefined,
   }));
@@ -140,20 +135,16 @@ export async function getPropertyById(
       `SELECT 
         p.*,
         r_owner.id as owner_resident_id,
-        u_owner.id as owner_user_id,
-        u_owner.full_name as owner_full_name,
-        u_owner.email as owner_email,
-        u_owner.phone as owner_phone,
+        r_owner.full_name as owner_full_name,
+        r_owner.email as owner_email,
+        r_owner.phone as owner_phone,
         r_current.id as current_resident_resident_id,
-        u_current.id as current_resident_user_id,
-        u_current.full_name as current_resident_full_name,
-        u_current.email as current_resident_email,
-        u_current.phone as current_resident_phone
+        r_current.full_name as current_resident_full_name,
+        r_current.email as current_resident_email,
+        r_current.phone as current_resident_phone
       FROM properties p
       LEFT JOIN residents r_owner ON p.owner_id = r_owner.id AND r_owner.deleted_at IS NULL
-      LEFT JOIN users u_owner ON r_owner.user_id = u_owner.id AND u_owner.deleted_at IS NULL
       LEFT JOIN residents r_current ON p.current_resident_id = r_current.id AND r_current.deleted_at IS NULL
-      LEFT JOIN users u_current ON r_current.user_id = u_current.id AND u_current.deleted_at IS NULL
       WHERE p.id = ? AND p.deleted_at IS NULL`
     )
     .bind(propertyId)
@@ -173,35 +164,26 @@ export async function getPropertyById(
     gate_control_1: result.gate_control_1,
     gate_control_2: result.gate_control_2,
     gate_control_3: result.gate_control_3,
+    credit_balance: result.credit_balance ?? 0,
+    delinquency_status: result.delinquency_status ?? 'al_corriente',
+    months_overdue: result.months_overdue ?? 0,
     created_at: result.created_at,
     updated_at: result.updated_at,
     deleted_at: result.deleted_at,
     owner: result.owner_resident_id
       ? {
           id: result.owner_resident_id,
-          user_id: result.owner_user_id,
-          user: result.owner_user_id
-            ? {
-                id: result.owner_user_id,
-                full_name: result.owner_full_name,
-                email: result.owner_email,
-                phone: result.owner_phone,
-              }
-            : undefined,
+          full_name: result.owner_full_name,
+          email: result.owner_email,
+          phone: result.owner_phone,
         }
       : undefined,
     current_resident: result.current_resident_resident_id
       ? {
           id: result.current_resident_resident_id,
-          user_id: result.current_resident_user_id,
-          user: result.current_resident_user_id
-            ? {
-                id: result.current_resident_user_id,
-                full_name: result.current_resident_full_name,
-                email: result.current_resident_email,
-                phone: result.current_resident_phone,
-              }
-            : undefined,
+          full_name: result.current_resident_full_name,
+          email: result.current_resident_email,
+          phone: result.current_resident_phone,
         }
       : undefined,
   };
@@ -277,6 +259,36 @@ export async function createProperty(
     )
     .run();
 
+  // Sincronizar resident_properties
+  if (data.owner_id) await syncResidentProperty(db, propertyId, 'propietario', data.owner_id);
+  if (data.current_resident_id) await syncResidentProperty(db, propertyId, 'residente_actual', data.current_resident_id);
+
+  // Saldo inicial (deuda heredada o crédito previo)
+  const initialBalance = Number((data as any).initial_balance || 0);
+  if (initialBalance > 0) {
+    // Deuda inicial: crear una "cuota de apertura" para que aparezca en estado de cuenta
+    const feeId = crypto.randomUUID();
+    await db
+      .prepare(
+        `INSERT INTO monthly_fees (
+          id, property_id, amount, discount_amount, discount_percentage,
+          total_amount, due_date, payment_period, status, balance,
+          paid_amount, notes, created_at, updated_at
+        ) VALUES (?, ?, ?, 0, 0, ?, ?, 'apertura', 'overdue', ?, 0, ?, ?, ?)`
+      )
+      .bind(
+        feeId, propertyId, initialBalance, initialBalance, now,
+        initialBalance, 'Saldo inicial al alta de propiedad', now, now
+      )
+      .run();
+  } else if (initialBalance < 0) {
+    // Crédito previo: agregar al credit_balance
+    await db
+      .prepare('UPDATE properties SET credit_balance = credit_balance + ? WHERE id = ?')
+      .bind(Math.abs(initialBalance), propertyId)
+      .run();
+  }
+
   console.log('✅ Service - Propiedad insertada, recuperando datos...');
 
   const property = await db
@@ -290,6 +302,60 @@ export async function createProperty(
 
   console.log('✅ Service - Propiedad creada exitosamente:', property.id);
   return property;
+}
+
+/**
+ * Sincroniza la tabla `resident_properties` con los campos `owner_id` y
+ * `current_resident_id` de una propiedad. Marca las relaciones previas como
+ * inactivas (cierra `end_date`) y crea las nuevas activas.
+ */
+async function syncResidentProperty(
+  db: D1Database,
+  propertyId: string,
+  role: 'propietario' | 'residente_actual',
+  newResidentId: string | null | undefined
+): Promise<void> {
+  const now = Math.floor(Date.now() / 1000);
+
+  // Cerrar relación anterior si existe
+  await db
+    .prepare(
+      `UPDATE resident_properties
+       SET is_active = 0, end_date = ?, updated_at = ?
+       WHERE property_id = ? AND role = ? AND is_active = 1`
+    )
+    .bind(now, now, propertyId, role)
+    .run();
+
+  if (!newResidentId) return;
+
+  // Si ya existe (resident, property, role) reactivar; si no, insertar
+  const existing = await db
+    .prepare(
+      `SELECT id FROM resident_properties
+       WHERE resident_id = ? AND property_id = ? AND role = ?`
+    )
+    .bind(newResidentId, propertyId, role)
+    .first<{ id: string }>();
+
+  if (existing) {
+    await db
+      .prepare(
+        `UPDATE resident_properties
+         SET is_active = 1, end_date = NULL, start_date = ?, updated_at = ?
+         WHERE id = ?`
+      )
+      .bind(now, now, existing.id)
+      .run();
+  } else {
+    await db
+      .prepare(
+        `INSERT INTO resident_properties (resident_id, property_id, role, start_date, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 1, ?, ?)`
+      )
+      .bind(newResidentId, propertyId, role, now, now, now)
+      .run();
+  }
 }
 
 /**
@@ -398,6 +464,14 @@ export async function updateProperty(
     .bind(...values)
     .run();
 
+  // Mantener resident_properties sincronizada
+  if (data.owner_id !== undefined) {
+    await syncResidentProperty(db, propertyId, 'propietario', data.owner_id);
+  }
+  if (data.current_resident_id !== undefined) {
+    await syncResidentProperty(db, propertyId, 'residente_actual', data.current_resident_id);
+  }
+
   const updatedProperty = await db
     .prepare('SELECT * FROM properties WHERE id = ?')
     .bind(propertyId)
@@ -449,15 +523,16 @@ export async function getPropertyResidents(
 
   const residents = await db
     .prepare(
-      `SELECT 
+      `SELECT
         r.*,
-        u.full_name,
-        u.email,
-        u.phone as user_phone
+        rp.role as property_role,
+        rp.start_date as property_start_date,
+        rp.end_date as property_end_date,
+        rp.is_active as property_is_active
       FROM residents r
-      JOIN users u ON r.user_id = u.id AND u.deleted_at IS NULL
-      WHERE r.property_id = ? AND r.deleted_at IS NULL
-      ORDER BY r.is_primary DESC, r.created_at ASC`
+      JOIN resident_properties rp ON rp.resident_id = r.id AND rp.is_active = 1
+      WHERE rp.property_id = ? AND r.deleted_at IS NULL
+      ORDER BY rp.role ASC, r.created_at ASC`
     )
     .bind(propertyId)
     .all();

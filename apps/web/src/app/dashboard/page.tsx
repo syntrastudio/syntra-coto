@@ -2,12 +2,16 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/lib/auth-context';
 import { StatCard } from '@/components/StatCard';
+import { AdminActionsCard } from '@/components/AdminActionsCard';
 import { Building2, Home, AlertCircle, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
@@ -92,6 +96,9 @@ export default function DashboardPage() {
           color="green"
         />
       </div>
+
+      {/* Acciones administrativas (solo admin/super_admin) */}
+      {isAdmin && <AdminActionsCard />}
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

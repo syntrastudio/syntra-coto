@@ -10,6 +10,10 @@ import {
   CreditCard,
   Car,
   Settings,
+  Wallet,
+  BookOpen,
+  Ticket,
+  Camera,
   LogOut,
   Menu,
   X
@@ -25,6 +29,10 @@ const navigation = [
   { name: 'Vehículos', href: '/dashboard/vehicles', icon: Car, roles: ['super_admin', 'admin', 'supervisor'] },
   { name: 'Cuotas', href: '/dashboard/fees', icon: Receipt, roles: ['super_admin', 'admin', 'supervisor'] },
   { name: 'Pagos', href: '/dashboard/payments', icon: CreditCard, roles: ['super_admin', 'admin', 'supervisor'] },
+  { name: 'Mesa / Caja', href: '/dashboard/mesa', icon: Wallet, roles: ['super_admin', 'admin'] },
+  { name: 'Tickets', href: '/dashboard/tickets', icon: Ticket, roles: ['super_admin', 'admin', 'supervisor'] },
+  { name: 'Cámaras', href: '/dashboard/camaras', icon: Camera, roles: ['super_admin', 'admin', 'supervisor'] },
+  { name: 'Reglamento', href: '/dashboard/reglamento', icon: BookOpen, roles: ['super_admin', 'admin', 'supervisor', 'resident'] },
   { name: 'Configuración', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin'] },
 ];
 

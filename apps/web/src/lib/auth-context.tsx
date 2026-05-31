@@ -10,7 +10,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (credentials: LoginRequest) => Promise<void>;
+  login: (credentials: LoginRequest | { identifier: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   refetchUser: () => Promise<void>;
 }
@@ -51,12 +51,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchUser();
   }, []);
 
-  const login = async (credentials: LoginRequest) => {
+  const login = async (credentials: LoginRequest | { identifier: string; password: string }) => {
     try {
-      const response = await apiClient.login(credentials);
+      const response = await apiClient.login(credentials as any);
       if (response.success && response.data) {
         setUser(response.data.user);
-        router.push('/dashboard');
+        const role = response.data.user.role;
+        router.push(role === 'resident' ? '/resident' : '/dashboard');
       } else {
         throw new Error('Error al iniciar sesión');
       }

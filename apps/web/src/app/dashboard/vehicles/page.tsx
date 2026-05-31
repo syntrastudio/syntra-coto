@@ -25,16 +25,16 @@ export default function VehiclesPage() {
     queryKey: ['vehicles', filters],
     queryFn: async () => {
       const response = await apiClient.getVehicles(1, 1000, filters);
-      return response.data;
+      return Array.isArray(response.data) ? response.data : ((response.data as any)?.data || []);
     },
   });
 
   // Obtener propiedades para el select
   const { data: propertiesData } = useQuery({
-    queryKey: ['properties'],
+    queryKey: ['properties', 'all'],
     queryFn: async () => {
       const response = await apiClient.getProperties(1, 1000);
-      return response.data;
+      return Array.isArray(response.data) ? response.data : ((response.data as any)?.data || []);
     },
   });
 

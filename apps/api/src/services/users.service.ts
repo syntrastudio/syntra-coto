@@ -118,70 +118,120 @@ export class UsersService {
   }
 
   /**
-   * Crear nuevo usuario (solo super_admin)
+   * Listar residentes que aún NO tienen cuenta de usuario.
+   * Útil para el modal "crear usuario" que selecciona desde residentes.
+   */
+  async listResidentsWithoutUser(): Promise<
+    Array<{ id: string; full_name: string; email: string; phone: string; type: string }>
+  > {
+    const result = await this.db
+      .prepare(
+        `SELECT r.id, r.full_name, r.email, r.phone, r.type
+         FROM residents r
+         LEFT JOIN users u ON u.resident_id = r.id AND u.deleted_at IS NULL
+         WHERE r.deleted_at IS NULL AND r.status = 'activo' AND u.id IS NULL
+         ORDER BY r.full_name`
+      )
+      .all<{ id: string; full_name: string; email: string; phone: string; type: string }>();
+    return result.results || [];
+  }
+
+  /**
+   * Crear nuevo usuario.
+   *
+   * Modo A — desde un residente existente: pasar `resident_id`. Se toma
+   *   email/full_name/phone del residente. Si no se proporciona `password`,
+   *   se genera uno temporal que el caller debe enviar por correo.
+   * Modo B — manual: pasar email/full_name/phone explícitos.
+   *
+   * Devuelve `userId` y, si se generó password, también el password temporal.
    */
   async createUser(
-    input: CreateUserInput,
+    input: CreateUserInput & { resident_id?: string },
     createdBy: string,
     creatorRole: string
-  ): Promise<{ success: boolean; userId?: string; error?: string }> {
-    // Validar permisos: solo super_admin puede crear usuarios
-    if (creatorRole !== 'super_admin') {
-      return { success: false, error: 'Solo super administradores pueden crear usuarios' };
+  ): Promise<{ success: boolean; userId?: string; tempPassword?: string; email?: string; fullName?: string; error?: string }> {
+    if (creatorRole !== 'super_admin' && creatorRole !== 'admin') {
+      return { success: false, error: 'Solo administradores pueden crear usuarios' };
+    }
+    if (input.role === 'super_admin' && creatorRole !== 'super_admin') {
+      return { success: false, error: 'Solo super_admin puede crear otros super_admin' };
     }
 
-    // Validar que no se intente crear un super_admin
-    if (input.role === 'super_admin' as any) {
-      return { success: false, error: 'No se puede crear usuarios super_admin desde esta API' };
+    // Si viene desde residente, autopoblar email/nombre/teléfono
+    let email = input.email;
+    let fullName = input.full_name;
+    let phone = input.phone;
+    let residentId: string | null = null;
+
+    if (input.resident_id) {
+      const resident = await this.db
+        .prepare("SELECT * FROM residents WHERE id = ? AND deleted_at IS NULL AND status = 'activo'")
+        .bind(input.resident_id)
+        .first<{ id: string; full_name: string; email: string; phone: string }>();
+      if (!resident) {
+        return { success: false, error: 'Residente no encontrado o inactivo' };
+      }
+      const linked = await this.db
+        .prepare('SELECT id FROM users WHERE resident_id = ? AND deleted_at IS NULL')
+        .bind(input.resident_id)
+        .first();
+      if (linked) {
+        return { success: false, error: 'Este residente ya tiene cuenta de usuario' };
+      }
+      email = resident.email;
+      fullName = resident.full_name;
+      phone = resident.phone;
+      residentId = resident.id;
     }
 
-    // Validar email único
+    if (!email || !fullName) {
+      return { success: false, error: 'Faltan email o nombre completo' };
+    }
+
     const existingUser = await this.db
       .prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NULL')
-      .bind(input.email)
+      .bind(email)
       .first();
-
     if (existingUser) {
       return { success: false, error: 'El email ya está registrado' };
     }
 
-    // Validar contraseña fuerte
-    if (!this.isStrongPassword(input.password)) {
+    // Password: usar el provisto o generar uno temporal
+    let plainPassword = input.password;
+    let tempPassword: string | undefined;
+    if (!plainPassword) {
+      const { generateTempPassword } = await import('../utils/email');
+      plainPassword = generateTempPassword();
+      tempPassword = plainPassword;
+    }
+
+    if (!this.isStrongPassword(plainPassword)) {
       return {
         success: false,
-        error: 'La contraseña debe tener al menos 8 caracteres, incluir mayúsculas, minúsculas y números'
+        error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número',
       };
     }
 
-    // Hashear contraseña
-    const passwordHash = await hashPassword(input.password);
-
-    // Crear usuario
+    const passwordHash = await hashPassword(plainPassword);
     const userId = this.generateId();
     const now = Math.floor(Date.now() / 1000);
 
     await this.db
-      .prepare(`
-        INSERT INTO users (
+      .prepare(
+        `INSERT INTO users (
           id, email, password_hash, full_name, phone, role, status,
-          created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `)
+          resident_id, created_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
       .bind(
-        userId,
-        input.email,
-        passwordHash,
-        input.full_name,
-        input.phone || null,
-        input.role,
-        input.status || 'active',
-        createdBy,
-        now,
-        now
+        userId, email, passwordHash, fullName, phone || null,
+        input.role, input.status || 'active', residentId,
+        createdBy, now, now
       )
       .run();
 
-    return { success: true, userId };
+    return { success: true, userId, tempPassword, email, fullName };
   }
 
   /**

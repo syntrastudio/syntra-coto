@@ -4,6 +4,7 @@
  */
 
 import { Context, Next } from 'hono';
+import { extractTokenFromHeader, verifyToken } from '../utils/jwt';
 
 interface AuditLogEntry {
   user_id: string | null;
@@ -35,33 +36,74 @@ export function auditMiddleware() {
       return;
     }
 
-    // Capturar datos antes de la operación
-    const user = c.get('user');
-    const startTime = Date.now();
+    // Capturar el body de la request ANTES de next() para guardarlo en new_values.
+    // Sanitizamos campos sensibles para no escribir passwords en claro.
+    let capturedBody: any = null;
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+      try {
+        const cloned = c.req.raw.clone();
+        const text = await cloned.text();
+        if (text) {
+          try {
+            const parsed = JSON.parse(text);
+            capturedBody = sanitizeForAudit(parsed);
+          } catch {
+            // Body no es JSON (raro en esta API); guardamos texto truncado
+            capturedBody = { _raw: text.slice(0, 500) };
+          }
+        }
+      } catch {
+        // No bloquear si falla la captura
+      }
+    }
+
+    // El user se lee DESPUÉS de next() porque authMiddleware corre dentro de next()
     let statusCode: number | null = null;
     let errorMessage: string | null = null;
 
     try {
       // Ejecutar la operación
       await next();
-      
+
       // Capturar código de estado de la respuesta
       statusCode = c.res.status;
+      // Si la respuesta fue >= 400, intentar capturar el mensaje del body
+      if (statusCode >= 400) {
+        try {
+          const body = await c.res.clone().json<any>();
+          errorMessage =
+            typeof body?.error === 'string'
+              ? body.error
+              : body?.message || JSON.stringify(body?.error || body);
+        } catch {
+          errorMessage = `HTTP ${statusCode}`;
+        }
+      }
     } catch (error: any) {
       statusCode = 500;
       errorMessage = error.message || 'Error desconocido';
       throw error; // Re-lanzar el error para que sea manejado por el error handler
     } finally {
-      // Registrar en audit_logs solo si la operación fue exitosa (2xx o 3xx)
-      if (statusCode && statusCode < 400) {
+      // Loguear SIEMPRE (éxito o error) para tener trazabilidad
+      if (statusCode) {
+        let userId: string | null = null;
+        try {
+          const token = extractTokenFromHeader(c.req.header('Authorization'));
+          if (token && c.env.JWT_SECRET) {
+            const payload = await verifyToken(token, c.env.JWT_SECRET);
+            if (payload?.type === 'access') userId = payload.sub as string;
+          }
+        } catch {
+          // Token inválido/ausente: log sin user
+        }
         try {
           await logAudit(c, {
-            user_id: user?.id || null,
+            user_id: userId,
             action: getActionFromMethod(method),
             entity_type: getEntityTypeFromPath(path),
             entity_id: getEntityIdFromPath(path),
-            old_values: null, // Se puede implementar captura de valores anteriores
-            new_values: null, // Se puede implementar captura de valores nuevos
+            old_values: null, // captura por servicio cuando se requiera (TODO)
+            new_values: capturedBody ? JSON.stringify(capturedBody) : null,
             ip_address: getClientIP(c),
             user_agent: c.req.header('user-agent') || null,
             request_method: method,
@@ -203,6 +245,41 @@ function getClientIP(c: Context): string | null {
     c.req.header('x-real-ip') ||
     null
   );
+}
+
+/**
+ * Quita campos sensibles antes de guardar el body en audit_logs.
+ * También trunca strings muy largos para no inflar la tabla.
+ */
+const SENSITIVE_KEYS = new Set([
+  'password',
+  'new_password',
+  'newPassword',
+  'current_password',
+  'currentPassword',
+  'password_hash',
+  'access_token',
+  'refresh_token',
+  'token',
+  'secret',
+  'api_key',
+]);
+
+function sanitizeForAudit(obj: any, depth = 0): any {
+  if (depth > 4) return '[depth limit]';
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') return obj.length > 500 ? obj.slice(0, 500) + '…' : obj;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.slice(0, 20).map((v) => sanitizeForAudit(v, depth + 1));
+  const out: any = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (SENSITIVE_KEYS.has(k)) {
+      out[k] = '[redacted]';
+    } else {
+      out[k] = sanitizeForAudit(v, depth + 1);
+    }
+  }
+  return out;
 }
 
 /**

@@ -113,38 +113,36 @@ export async function generateMonthlyFees(
   db: D1Database,
   paymentPeriod: string,
   baseAmount: number,
-  discountPercentage: number = 10,
-  discountDays: number = 16
-): Promise<{ generated: number; skipped: number; errors: string[] }> {
-  // Obtener todas las propiedades activas
+  _unusedDiscountPct: number = 0,
+  _unusedDiscountDays: number = 0
+): Promise<{ generated: number; skipped: number; auto_paid_with_credit: number; errors: string[] }> {
   const properties = await db
-    .prepare('SELECT id, house_number FROM properties WHERE deleted_at IS NULL AND status != ?')
-    .bind('vacant')
-    .all<{ id: string; house_number: string }>();
+    .prepare(
+      'SELECT id, house_number, credit_balance FROM properties WHERE deleted_at IS NULL AND status != ?'
+    )
+    .bind('desocupada')
+    .all<{ id: string; house_number: string; credit_balance: number }>();
 
   if (!properties.results || properties.results.length === 0) {
-    return { generated: 0, skipped: 0, errors: ['No hay propiedades activas'] };
+    return { generated: 0, skipped: 0, auto_paid_with_credit: 0, errors: ['No hay propiedades activas'] };
   }
 
-  // Verificar si ya existen cuotas para este período
   const existingFees = await db
     .prepare('SELECT property_id FROM monthly_fees WHERE payment_period = ? AND deleted_at IS NULL')
     .bind(paymentPeriod)
     .all<{ property_id: string }>();
-
   const existingPropertyIds = new Set((existingFees.results || []).map((f) => f.property_id));
 
   let generated = 0;
   let skipped = 0;
+  let autoPaid = 0;
   const errors: string[] = [];
 
-  // Calcular fecha de vencimiento (último día del mes)
   const [year, month] = paymentPeriod.split('-').map(Number);
   if (!year || !month) {
-    return { generated: 0, skipped: 0, errors: ['Formato de período inválido'] };
+    return { generated: 0, skipped: 0, auto_paid_with_credit: 0, errors: ['Formato de período inválido'] };
   }
   const dueDate = Math.floor(new Date(year, month, 0).getTime() / 1000);
-
   const now = Math.floor(Date.now() / 1000);
 
   for (const property of properties.results) {
@@ -155,31 +153,54 @@ export async function generateMonthlyFees(
 
     try {
       const feeId = crypto.randomUUID();
-      const discountAmount = (baseAmount * discountPercentage) / 100;
-      const totalAmount = baseAmount - discountAmount;
+      const totalAmount = baseAmount;
 
       await db
         .prepare(
           `INSERT INTO monthly_fees (
             id, property_id, amount, discount_amount, discount_percentage,
             total_amount, due_date, payment_period, status, balance,
-            created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            paid_amount, created_at, updated_at
+          ) VALUES (?, ?, ?, 0, 0, ?, ?, ?, 'pending', ?, 0, ?, ?)`
         )
-        .bind(
-          feeId, property.id, baseAmount, discountAmount, discountPercentage,
-          totalAmount, dueDate, paymentPeriod, 'pending', totalAmount,
-          now, now
-        )
+        .bind(feeId, property.id, baseAmount, totalAmount, dueDate, paymentPeriod, totalAmount, now, now)
         .run();
-
       generated++;
+
+      // Si la propiedad tiene saldo a favor, aplicarlo automáticamente
+      const credit = Number(property.credit_balance || 0);
+      if (credit > 0) {
+        const applied = Math.min(credit, totalAmount);
+        const newBalance = totalAmount - applied;
+        const newStatus = newBalance <= 0 ? 'paid' : 'partially_paid';
+
+        await db
+          .prepare(
+            `UPDATE monthly_fees
+             SET paid_amount = ?, balance = ?, status = ?,
+                 notes = COALESCE(notes || ' | ', '') || ?, updated_at = ?
+             WHERE id = ?`
+          )
+          .bind(
+            applied, newBalance, newStatus,
+            `Aplicado $${applied.toFixed(2)} de saldo a favor`,
+            now, feeId
+          )
+          .run();
+
+        await db
+          .prepare('UPDATE properties SET credit_balance = credit_balance - ?, updated_at = ? WHERE id = ?')
+          .bind(applied, now, property.id)
+          .run();
+
+        if (newStatus === 'paid') autoPaid++;
+      }
     } catch (error) {
       errors.push(`Error en propiedad ${property.house_number}: ${error}`);
     }
   }
 
-  return { generated, skipped, errors };
+  return { generated, skipped, auto_paid_with_credit: autoPaid, errors };
 }
 
 /**

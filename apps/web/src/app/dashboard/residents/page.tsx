@@ -29,16 +29,41 @@ export default function ResidentsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateResidentInput) => apiClient.createResident(data),
-    onSuccess: () => {
+    mutationFn: async (args: { data: CreateResidentInput; createUser?: boolean; userRole?: string }) => {
+      const created = await apiClient.createResident(args.data);
+      const residentId = (created as any)?.data?.id;
+      let userResult: any = null;
+      if (args.createUser && residentId) {
+        userResult = await apiClient.createUser({
+          resident_id: residentId,
+          role: (args.userRole as any) || 'resident',
+        });
+      }
+      return { resident: created, user: userResult };
+    },
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['residents'] });
+      queryClient.invalidateQueries({ queryKey: ['available-residents'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       setShowModal(false);
       setEditingResident(null);
-      alert('✅ Residente creado exitosamente');
+
+      const userData = (result.user as any)?.data;
+      if (userData) {
+        if (userData.email_sent) {
+          alert('✅ Residente creado.\nCuenta de acceso generada y correo enviado.');
+        } else if (userData.email_skipped) {
+          alert('✅ Residente creado.\n⚠️ Cuenta generada pero el envío de correo está deshabilitado en el server.');
+        } else {
+          alert('✅ Residente creado.\n⚠️ Cuenta generada pero el correo no se envió.');
+        }
+      } else {
+        alert('✅ Residente creado.');
+      }
     },
     onError: (error: Error) => {
       console.error('❌ Error al crear residente:', error);
-      alert(`❌ Error al crear residente: ${error.message}`);
+      alert(`❌ Error: ${error.message}`);
     },
   });
 
@@ -60,7 +85,12 @@ export default function ResidentsPage() {
     mutationFn: (id: string) => apiClient.deleteResident(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['residents'] });
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
       setShowDeleteConfirm(null);
+      alert('✅ Residente eliminado');
+    },
+    onError: (e: Error) => {
+      alert(`❌ Error al eliminar residente: ${e.message}`);
     },
   });
 
@@ -68,9 +98,14 @@ export default function ResidentsPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    // Convertir fecha a timestamp Unix (segundos)
+    // Convertir fecha a timestamp Unix (segundos). El input "YYYY-MM-DD" se
+    // parsea como medianoche LOCAL para que no haya desfase por timezone.
     const startDateString = formData.get('start_date') as string;
-    const startDateTimestamp = Math.floor(new Date(startDateString).getTime() / 1000);
+    const parts = startDateString.split('-').map(Number);
+    const yy = parts[0] || 1970;
+    const mm = parts[1] || 1;
+    const dd = parts[2] || 1;
+    const startDateTimestamp = Math.floor(new Date(yy, mm - 1, dd).getTime() / 1000);
     
     const data: CreateResidentInput = {
       full_name: formData.get('full_name') as string,
@@ -82,9 +117,11 @@ export default function ResidentsPage() {
     };
 
     if (editingResident) {
-      updateMutation.mutate({ id: editingResident.id, data: { ...data, id: editingResident.id } });
+      updateMutation.mutate({ id: editingResident.id, data: { ...data, id: editingResident.id } as UpdateResidentInput });
     } else {
-      createMutation.mutate(data);
+      const createUser = formData.get('create_user') === 'on';
+      const userRole = (formData.get('user_role') as string) || 'resident';
+      createMutation.mutate({ data, createUser, userRole });
     }
   };
 
@@ -103,11 +140,13 @@ export default function ResidentsPage() {
     setEditingResident(null);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-MX', {
+  const formatDate = (unixSeconds: number | string) => {
+    const ms = typeof unixSeconds === 'number' ? unixSeconds * 1000 : Date.parse(unixSeconds);
+    return new Date(ms).toLocaleDateString('es-MX', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      timeZone: 'America/Mexico_City',
     });
   };
 
@@ -212,6 +251,9 @@ export default function ResidentsPage() {
                     Tipo
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Propiedad
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Fecha Inicio
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -255,6 +297,22 @@ export default function ResidentsPage() {
                       }`}>
                         {resident.type === 'propietario' ? 'Propietario' : 'Inquilino'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {((resident as any).properties || []).length > 0 ? (
+                        <div className="space-y-0.5">
+                          {((resident as any).properties as Array<{ id: string; house_number: string; street: string; role: string }>).map((p) => (
+                            <div key={p.id} className="text-gray-900 dark:text-gray-100">
+                              <span className="font-medium">{p.street} #{p.house_number}</span>
+                              <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
+                                ({p.role === 'propietario' ? 'dueño' : 'reside'})
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       <div className="flex items-center">
@@ -421,7 +479,17 @@ export default function ResidentsPage() {
                     name="start_date"
                     required
                     max={new Date().toISOString().split('T')[0]}
-                    defaultValue={editingResident?.start_date ? new Date(editingResident.start_date).toISOString().split('T')[0] : ''}
+                    defaultValue={
+                      editingResident?.start_date
+                        ? (() => {
+                            const ms = typeof editingResident.start_date === 'number'
+                              ? editingResident.start_date * 1000
+                              : Date.parse(editingResident.start_date as any);
+                            const d = new Date(ms);
+                            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                          })()
+                        : ''
+                    }
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -442,6 +510,8 @@ export default function ResidentsPage() {
                   </select>
                 </div>
               )}
+
+              {!editingResident && <CreateUserToggle />}
 
               <div className="flex justify-end space-x-3 pt-4">
                 <button
@@ -500,4 +570,47 @@ export default function ResidentsPage() {
   );
 }
 
-// Made with Bob
+function CreateUserToggle() {
+  const [enabled, setEnabled] = useState(false);
+  return (
+    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          name="create_user"
+          checked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+        />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            Crear también cuenta de acceso al portal
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Se generará una contraseña temporal y se enviará por correo al residente.
+          </p>
+        </div>
+      </label>
+
+      {enabled && (
+        <div className="mt-3 pl-7">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Rol en el sistema
+          </label>
+          <select
+            name="user_role"
+            defaultValue="resident"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          >
+            <option value="resident">Residente (portal básico)</option>
+            <option value="supervisor">Supervisor (caseta)</option>
+            <option value="admin">Admin (mesa directiva)</option>
+          </select>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Para crear super_admin debes hacerlo desde Configuración → Usuarios.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

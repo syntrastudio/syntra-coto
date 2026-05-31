@@ -8,10 +8,16 @@ import { z } from 'zod';
 // AUTH SCHEMAS
 // ============================================================================
 
-export const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
-  password: z.string().min(1, 'La contraseña es requerida'),
-});
+export const loginSchema = z
+  .object({
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    identifier: z.string().optional(),
+    password: z.string().min(1, 'La contraseña es requerida'),
+  })
+  .refine((d) => d.email || d.phone || d.identifier, {
+    message: 'Debe proporcionar email, teléfono o identifier',
+  });
 
 export const registerSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -34,26 +40,33 @@ export const refreshTokenSchema = z.object({
 // PROPERTY SCHEMAS
 // ============================================================================
 
+// Helper: acepta string, null o vacío y normaliza a string|null
+const nullableString = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((v) => (v === '' || v === undefined ? null : v));
+
 export const propertyCreateSchema = z.object({
   house_number: z.string().min(1, 'El número de casa es requerido'),
   street: z.string().min(1, 'La calle es requerida'),
   status: z.enum(['ocupada', 'desocupada', 'en_renta', 'en_venta']).optional(),
-  owner_id: z.string().optional(),
-  current_resident_id: z.string().optional(),
-  gate_control_1: z.string().optional(),
-  gate_control_2: z.string().optional(),
-  gate_control_3: z.string().optional(),
+  owner_id: nullableString,
+  current_resident_id: nullableString,
+  gate_control_1: nullableString,
+  gate_control_2: nullableString,
+  gate_control_3: nullableString,
+  initial_balance: z.number().optional(),
 });
 
 export const propertyUpdateSchema = z.object({
   house_number: z.string().min(1).optional(),
   street: z.string().min(1).optional(),
   status: z.enum(['ocupada', 'desocupada', 'en_renta', 'en_venta']).optional(),
-  owner_id: z.string().optional(),
-  current_resident_id: z.string().optional(),
-  gate_control_1: z.string().optional(),
-  gate_control_2: z.string().optional(),
-  gate_control_3: z.string().optional(),
+  owner_id: nullableString,
+  current_resident_id: nullableString,
+  gate_control_1: nullableString,
+  gate_control_2: nullableString,
+  gate_control_3: nullableString,
 });
 
 export const propertyListQuerySchema = z.object({
@@ -132,20 +145,29 @@ export const monthlyFeeListQuerySchema = z.object({
 // PAYMENT SCHEMAS
 // ============================================================================
 
-export const paymentCreateSchema = z.object({
-  monthly_fee_id: z.string().min(1, 'El ID de cuota es requerido'),
-  amount: z.number().positive('El monto debe ser positivo'),
-  payment_method: z.enum([
-    'cash',
-    'transfer',
-    'card',
-    'check',
-    'stripe',
-    'mercadopago',
-  ]),
+export const paymentCreateSchema = z
+  .object({
+    monthly_fee_id: z.string().optional(),
+    property_id: z.string().optional(),
+    amount: z.number().positive('El monto debe ser positivo'),
+    payment_method: z.enum(['cash', 'transfer', 'card', 'check', 'stripe', 'mercadopago']),
+    payment_reference: z.string().optional(),
+    payment_date: z.number().int().positive(),
+    notes: z.string().optional(),
+    received_by_user_id: z.string().optional(),
+  })
+  .refine((d) => d.monthly_fee_id || d.property_id, {
+    message: 'Debe proporcionar monthly_fee_id o property_id',
+  });
+
+export const annualPaymentSchema = z.object({
+  property_id: z.string().min(1),
+  year: z.number().int().min(2000).max(2100),
+  payment_method: z.enum(['cash', 'transfer', 'card', 'check', 'stripe', 'mercadopago']),
   payment_reference: z.string().optional(),
   payment_date: z.number().int().positive(),
   notes: z.string().optional(),
+  received_by_user_id: z.string().optional(),
 });
 
 export const paymentUpdateSchema = z.object({

@@ -270,21 +270,24 @@ export async function deleteResident(db: D1Database, residentId: string): Promis
 
   if (!resident) throwNotFound('Residente');
 
-  // Verificar que no tenga propiedades activas asociadas
-  const activeProperties = await db
-    .prepare('SELECT COUNT(*) as count FROM resident_properties WHERE resident_id = ? AND is_active = 1')
-    .bind(residentId)
-    .first<{ count: number }>();
-
-  if (activeProperties && activeProperties.count > 0) {
-    throwApiError('No se puede eliminar el residente porque tiene propiedades activas asociadas', 400);
-  }
-
   const now = Math.floor(Date.now() / 1000);
-  await db
-    .prepare('UPDATE residents SET deleted_at = ?, updated_at = ? WHERE id = ?')
-    .bind(now, now, residentId)
-    .run();
+
+  // Cascade: desvincular del residente cualquier propiedad donde figure como
+  // owner o residente actual, y cerrar sus relaciones activas en resident_properties.
+  await db.batch([
+    db.prepare(
+      `UPDATE properties SET owner_id = NULL, updated_at = ? WHERE owner_id = ?`
+    ).bind(now, residentId),
+    db.prepare(
+      `UPDATE properties SET current_resident_id = NULL, updated_at = ? WHERE current_resident_id = ?`
+    ).bind(now, residentId),
+    db.prepare(
+      `UPDATE resident_properties SET is_active = 0, end_date = ?, updated_at = ? WHERE resident_id = ? AND is_active = 1`
+    ).bind(now, now, residentId),
+    db.prepare(
+      `UPDATE residents SET deleted_at = ?, updated_at = ? WHERE id = ?`
+    ).bind(now, now, residentId),
+  ]);
 }
 
 /**

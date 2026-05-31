@@ -157,13 +157,11 @@ export function paginated<T>(
   pagination: PaginationMeta,
   status: number = 200
 ) {
-  return c.json<ApiResponse<PaginatedResponse<T>>>(
+  return c.json(
     {
       success: true,
-      data: {
-        data,
-        pagination,
-      },
+      data,
+      pagination,
     },
     status
   );
@@ -183,7 +181,7 @@ export function calculatePagination(
     page,
     limit,
     total,
-    total_pages: totalPages,
+    totalPages,
   };
 }
 

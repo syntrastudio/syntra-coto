@@ -9,6 +9,7 @@ import { success, created, notFound, paginated, calculatePagination } from '../u
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireAdmin } from '../middleware/role.middleware';
 import { listMonthlyFees, getMonthlyFeeById, generateMonthlyFees, getPropertyFees } from '../services/fees.service';
+import { recalculateDelinquency, applyLateFees } from '../services/delinquency.service';
 
 const fees = new Hono();
 
@@ -40,6 +41,37 @@ fees.get('/property/:propertyId', authMiddleware, async (c) => {
   const db = c.env.DB as D1Database;
   const propertyFees = await getPropertyFees(db, propertyId);
   return success(c, propertyFees);
+});
+
+// Genera cuotas del mes en curso usando `maintenance_fee_amount` de settings.
+// Útil para el botón manual del dashboard sin tener que conocer el periodo/monto.
+fees.post('/generate-current', authMiddleware, requireAdmin(), async (c) => {
+  const db = c.env.DB as D1Database;
+  const feeRow = await db
+    .prepare("SELECT value FROM system_settings WHERE key = 'maintenance_fee_amount'")
+    .first<{ value: string }>();
+  const baseAmount = Number(feeRow?.value || 0);
+  if (baseAmount <= 0) {
+    return c.json({ success: false, error: 'Configura maintenance_fee_amount en Settings → General antes de generar cuotas' }, 400);
+  }
+  const now = new Date();
+  const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const result = await generateMonthlyFees(db, period, baseAmount);
+  return c.json({ success: true, data: { period, base_amount: baseAmount, ...result } });
+});
+
+// Aplica el recargo del 15% sobre cuotas vencidas (idempotente por mes)
+fees.post('/apply-late-fees', authMiddleware, requireAdmin(), async (c) => {
+  const db = c.env.DB as D1Database;
+  const result = await applyLateFees(db);
+  return success(c, result);
+});
+
+// Recalcula delinquency_status en cada propiedad según cuotas vencidas
+fees.post('/recalculate-delinquency', authMiddleware, requireAdmin(), async (c) => {
+  const db = c.env.DB as D1Database;
+  const result = await recalculateDelinquency(db);
+  return success(c, result);
 });
 
 export default fees;

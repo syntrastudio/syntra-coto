@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { Search, Plus, Edit, Trash2, X } from 'lucide-react';
-import type { Property, CreatePropertyInput } from '@/types';
+import type { Property, CreatePropertyInput, Resident } from '@/types';
+import { STREETS } from '@/lib/streets';
 
 export default function PropertiesPage() {
   const [page, setPage] = useState(1);
@@ -22,10 +23,20 @@ export default function PropertiesPage() {
       const filters: any = { page, limit: 20 };
       if (search) filters.search = search;
       if (statusFilter) filters.status = statusFilter;
-      
+
       return await apiClient.getProperties(page, 20, filters);
     },
   });
+
+  // Lista de residentes activos para los dropdowns del modal
+  const { data: residentsData } = useQuery({
+    queryKey: ['residents', 'active', 'all'],
+    queryFn: () => apiClient.getResidents(1, 100, { status: 'activo' }),
+    enabled: showModal,
+  });
+  const residents: Resident[] = Array.isArray((residentsData as any)?.data)
+    ? ((residentsData as any).data as Resident[])
+    : [];
 
   const createMutation = useMutation({
     mutationFn: (data: CreatePropertyInput) => apiClient.createProperty(data),
@@ -73,8 +84,8 @@ export default function PropertiesPage() {
       house_number: formData.get('house_number') as string,
       street: formData.get('street') as string,
       status: formData.get('status') as Property['status'],
-      owner_id: formData.get('owner_id') as string || undefined,
-      current_resident_id: formData.get('current_resident_id') as string || undefined,
+      owner_id: (formData.get('owner_id') as string) || null as any,
+      current_resident_id: (formData.get('current_resident_id') as string) || null as any,
       gate_control_1: formData.get('gate_control_1') as string || undefined,
       gate_control_2: formData.get('gate_control_2') as string || undefined,
       gate_control_3: formData.get('gate_control_3') as string || undefined,
@@ -83,6 +94,8 @@ export default function PropertiesPage() {
     if (editingProperty) {
       updateMutation.mutate({ id: editingProperty.id, data: propertyData });
     } else {
+      const initialBalance = Number(formData.get('initial_balance') || 0);
+      if (initialBalance) (propertyData as any).initial_balance = initialBalance;
       createMutation.mutate(propertyData);
     }
   };
@@ -208,7 +221,13 @@ export default function PropertiesPage() {
                     Estado
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Controles
+                    Propietario
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Reside
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Estado de pago
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Acciones
@@ -227,10 +246,14 @@ export default function PropertiesPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(property.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {[property.gate_control_1, property.gate_control_2, property.gate_control_3]
-                        .filter(Boolean)
-                        .join(', ') || '-'}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                      {(property as any).owner?.full_name || <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                      {(property as any).current_resident?.full_name || <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <FinancialStatusCell property={property as any} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
@@ -319,13 +342,20 @@ export default function PropertiesPage() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Calle *
                     </label>
-                    <input
-                      type="text"
+                    <select
                       name="street"
                       required
-                      defaultValue={editingProperty?.street}
+                      defaultValue={editingProperty?.street || ''}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                    >
+                      <option value="">Seleccionar calle...</option>
+                      {STREETS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                      {editingProperty?.street && !STREETS.includes(editingProperty.street as any) && (
+                        <option value={editingProperty.street}>{editingProperty.street} (legado)</option>
+                      )}
+                    </select>
                   </div>
 
                   <div>
@@ -342,6 +372,42 @@ export default function PropertiesPage() {
                       <option value="desocupada">Desocupada</option>
                       <option value="en_renta">En Renta</option>
                       <option value="en_venta">En Venta</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Propietario
+                    </label>
+                    <select
+                      name="owner_id"
+                      defaultValue={editingProperty?.owner_id || ''}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">— Sin asignar —</option>
+                      {residents.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.full_name} ({(r as any).type})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Residente actual
+                    </label>
+                    <select
+                      name="current_resident_id"
+                      defaultValue={editingProperty?.current_resident_id || ''}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">— Sin asignar —</option>
+                      {residents.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.full_name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -381,6 +447,27 @@ export default function PropertiesPage() {
                     />
                   </div>
                 </div>
+
+                {!editingProperty && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Saldo inicial (opcional)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="initial_balance"
+                      defaultValue="0"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0.00"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <strong>Positivo</strong>: deuda heredada (ej. 5000 = la propiedad inicia con $5,000 de adeudo). Se crea una cuota de apertura.<br />
+                      <strong>Negativo</strong>: crédito previo (ej. −2000 = saldo a favor inicial de $2,000).<br />
+                      Dejar en 0 si la propiedad inicia sin movimientos.
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex justify-end gap-3 mt-6">
                   <button
@@ -438,4 +525,52 @@ export default function PropertiesPage() {
   );
 }
 
-// Made with Bob
+// ============================================================================
+// Estado financiero por propiedad (badge + monto)
+// ============================================================================
+function FinancialStatusCell({ property }: { property: any }) {
+  const owed = Number(property?.total_owed ?? 0);
+  const credit = Number(property?.credit_balance ?? 0);
+  const net = owed - credit;
+  const status = property?.delinquency_status || 'al_corriente';
+  const pending = Number(property?.pending_fees_count ?? 0);
+
+  const STATUS_BADGES: Record<string, string> = {
+    al_corriente: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+    mora_1_mes: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+    mora_2_meses: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+    suspendido: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  };
+
+  const STATUS_LABELS: Record<string, string> = {
+    al_corriente: 'Al corriente',
+    mora_1_mes: '1 mes mora',
+    mora_2_meses: '2 meses mora',
+    suspendido: 'Suspendido',
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium w-fit ${STATUS_BADGES[status] || ''}`}>
+        {STATUS_LABELS[status] || status}
+      </span>
+      {owed > 0 ? (
+        <span className="text-xs font-semibold text-red-600 dark:text-red-400">
+          Adeudo ${owed.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+          {pending > 0 && <span className="font-normal text-gray-500 dark:text-gray-400"> · {pending} cuota{pending === 1 ? '' : 's'}</span>}
+        </span>
+      ) : credit > 0 ? (
+        <span className="text-xs font-semibold text-green-600 dark:text-green-400">
+          Saldo a favor ${credit.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+        </span>
+      ) : (
+        <span className="text-xs text-gray-500 dark:text-gray-400">$0.00</span>
+      )}
+      {credit > 0 && owed > 0 && (
+        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+          Neto: ${net.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+        </span>
+      )}
+    </div>
+  );
+}

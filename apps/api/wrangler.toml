@@ -4,14 +4,23 @@ compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "409a158b8e894ec37f2d6e6357fca2d2"
 
+# Mantener el endpoint workers.dev como respaldo y servir también desde el dominio oficial
+workers_dev = true
+routes = [
+  { pattern = "coto.syntrastudio.dev/api/*", zone_name = "syntrastudio.dev" }
+]
+
+# Cron diario: 8am CDMX (UTC-6) = 14:00 UTC
+# Día 1: genera cuotas del mes + aplica recargos + recalcula morosidad + recordatorios
+# Otros días: solo recordatorios + morosidad
+[triggers]
+crons = ["0 14 * * *"]
+
 [env.development]
 name = "syntra-coto-api-dev"
 
 [env.production]
 name = "syntra-coto-api"
-routes = [
-  { pattern = "coto.syntrastudio.dev/api/*", zone_name = "syntrastudio.dev" }
-]
 
 # D1 Database binding
 [[d1_databases]]
@@ -27,6 +36,10 @@ ENVIRONMENT = "development"
 [[r2_buckets]]
 binding = "STORAGE"
 bucket_name = "syntra-coto-storage"
+
+# Workers AI (bot del reglamento)
+[ai]
+binding = "AI"
 
 # KV namespace binding (para caché)
 [[kv_namespaces]]

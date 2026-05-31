@@ -11,18 +11,21 @@ export function corsMiddleware() {
   return async (c: Context, next: Next) => {
     const origin = c.req.header('Origin');
     
-    // Lista de orígenes permitidos
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:5173',
-      'https://paseo-coto-tonala.com',
-      'https://www.paseo-coto-tonala.com',
       'https://coto.syntrastudio.dev',
+      'https://syntra-coto.pages.dev',
     ];
 
-    // Verificar si el origen está permitido
-    if (origin && allowedOrigins.includes(origin)) {
-      c.header('Access-Control-Allow-Origin', origin);
+    const isAllowed =
+      origin &&
+      (allowedOrigins.includes(origin) ||
+        /^https:\/\/[a-z0-9-]+\.syntra-coto\.pages\.dev$/.test(origin));
+
+    if (isAllowed) {
+      c.header('Access-Control-Allow-Origin', origin!);
+      c.header('Vary', 'Origin');
     }
 
     // Headers permitidos

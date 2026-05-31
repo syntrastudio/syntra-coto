@@ -3,10 +3,42 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
-  role: string;
-  status: string;
-  created_at?: string;
-  updated_at?: string;
+  phone?: string;
+  role: 'super_admin' | 'admin' | 'supervisor' | 'resident';
+  status: 'active' | 'inactive' | 'suspended';
+  email_verified?: boolean;
+  last_login_at?: number;
+  created_at?: number;
+  updated_at?: number;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  ip_address: string | null;
+  request_method: string | null;
+  request_path: string | null;
+  status_code: number | null;
+  error_message: string | null;
+  old_values: string | null;
+  new_values: string | null;
+  created_at: number;
+  user_email?: string;
+  user_full_name?: string;
+}
+
+export interface SystemSetting {
+  key: string;
+  value: any;
+  data_type: 'string' | 'number' | 'boolean' | 'json';
+  description: string | null;
+  category: string | null;
+  is_public: boolean;
+  is_editable: boolean;
+  updated_at: number;
 }
 
 // Tipos de Propiedad
@@ -133,13 +165,7 @@ export interface LoginRequest {
 export interface LoginResponse {
   success: boolean;
   data: {
-    user: {
-      id: string;
-      email: string;
-      full_name: string;
-      role: string;
-      status: string;
-    };
+    user: User;
     access_token: string;
     refresh_token: string;
     expires_in: number;
