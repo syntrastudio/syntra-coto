@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
+import { useConfirm } from '@/components/ConfirmDialog';
 import {
   Camera,
   Plus,
@@ -165,24 +167,27 @@ export default function CamarasPage() {
 
 function CameraModal({ camera, onClose }: { camera: any | null; onClose: () => void }) {
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const isEditing = !!camera;
 
   const mut = useMutation({
     mutationFn: (data: any) => isEditing ? apiClient.updateCamera(camera.id, data) : apiClient.createCamera(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cameras'] });
+      toast.success(isEditing ? 'Cámara actualizada' : 'Cámara agregada');
       onClose();
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo guardar', { description: e.message }),
   });
 
   const deleteMut = useMutation({
     mutationFn: () => apiClient.deleteCamera(camera.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cameras'] });
+      toast.success('Cámara eliminada');
       onClose();
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo eliminar', { description: e.message }),
   });
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -271,8 +276,14 @@ function CameraModal({ camera, onClose }: { camera: any | null; onClose: () => v
             {isEditing && (
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm(`¿Eliminar cámara "${camera.name}"?`)) deleteMut.mutate();
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: `¿Eliminar la cámara "${camera.name}"?`,
+                    description: 'Se quitará del inventario. Esta acción no se puede deshacer.',
+                    confirmText: 'Sí, eliminar',
+                    tone: 'danger',
+                  });
+                  if (ok) deleteMut.mutate();
                 }}
                 disabled={deleteMut.isPending}
                 className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1"

@@ -13,6 +13,7 @@ import {
   Wallet,
   BookOpen,
   Ticket,
+  LifeBuoy,
   LogOut,
   Menu,
   X
@@ -22,16 +23,17 @@ import { ThemeToggle } from './ThemeToggle';
 import { useState } from 'react';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['super_admin', 'admin', 'supervisor', 'resident'] },
-  { name: 'Propiedades', href: '/dashboard/properties', icon: Building2, roles: ['super_admin', 'admin', 'supervisor'] },
-  { name: 'Residentes', href: '/dashboard/residents', icon: Users, roles: ['super_admin', 'admin', 'supervisor'] },
-  { name: 'Vehículos', href: '/dashboard/vehicles', icon: Car, roles: ['super_admin', 'admin', 'supervisor'] },
-  { name: 'Cuotas', href: '/dashboard/fees', icon: Receipt, roles: ['super_admin', 'admin', 'supervisor'] },
-  { name: 'Pagos', href: '/dashboard/payments', icon: CreditCard, roles: ['super_admin', 'admin', 'supervisor'] },
-  { name: 'Mesa / Caja', href: '/dashboard/mesa', icon: Wallet, roles: ['super_admin', 'admin'] },
-  { name: 'Tickets', href: '/dashboard/tickets', icon: Ticket, roles: ['super_admin', 'admin', 'supervisor'] },
-  { name: 'Reglamento', href: '/dashboard/reglamento', icon: BookOpen, roles: ['super_admin', 'admin', 'supervisor', 'resident'] },
-  { name: 'Configuración', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin'] },
+  { name: 'Inicio', desc: 'Resumen general', href: '/dashboard', icon: Home, roles: ['super_admin', 'admin', 'supervisor', 'resident'] },
+  { name: 'Casas', desc: 'Las propiedades del coto', href: '/dashboard/properties', icon: Building2, roles: ['super_admin', 'admin', 'supervisor'] },
+  { name: 'Vecinos', desc: 'Padrón de residentes', href: '/dashboard/residents', icon: Users, roles: ['super_admin', 'admin', 'supervisor'] },
+  { name: 'Vehículos', desc: 'Autos registrados', href: '/dashboard/vehicles', icon: Car, roles: ['super_admin', 'admin', 'supervisor'] },
+  { name: 'Cuotas', desc: 'Mantenimiento mensual', href: '/dashboard/fees', icon: Receipt, roles: ['super_admin', 'admin', 'supervisor'] },
+  { name: 'Pagos', desc: 'Registrar y ver pagos', href: '/dashboard/payments', icon: CreditCard, roles: ['super_admin', 'admin', 'supervisor'] },
+  { name: 'Caja de la mesa', desc: 'Dinero de cada miembro', href: '/dashboard/mesa', icon: Wallet, roles: ['super_admin', 'admin'] },
+  { name: 'Solicitudes', desc: 'Reportes de los vecinos', href: '/dashboard/tickets', icon: Ticket, roles: ['super_admin', 'admin', 'supervisor'] },
+  { name: 'Reglamento', desc: 'Documento y asistente', href: '/dashboard/reglamento', icon: BookOpen, roles: ['super_admin', 'admin', 'supervisor', 'resident'] },
+  { name: '¿Cómo se usa?', desc: 'Guías paso a paso', href: '/dashboard/ayuda', icon: LifeBuoy, roles: ['super_admin', 'admin', 'supervisor', 'resident'] },
+  { name: 'Configuración', desc: 'Ajustes del sistema', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin'] },
 ];
 
 export function Sidebar() {
@@ -101,23 +103,30 @@ export function Sidebar() {
 
               const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
               const Icon = item.icon;
-              
+
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={`
-                    flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors
+                    flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors
                     ${
                       isActive
-                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                     }
                   `}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span>{item.name}</span>
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <span className="flex flex-col min-w-0">
+                    <span className={`text-sm leading-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>
+                      {item.name}
+                    </span>
+                    <span className="text-[11px] leading-tight text-gray-400 dark:text-gray-500 truncate">
+                      {item.desc}
+                    </span>
+                  </span>
                 </Link>
               );
             })}

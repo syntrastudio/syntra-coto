@@ -5,6 +5,9 @@ import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { StatCard } from '@/components/StatCard';
 import { AdminActionsCard } from '@/components/AdminActionsCard';
+import { WelcomeChecklist } from '@/components/WelcomeChecklist';
+import { QuickActions } from '@/components/QuickActions';
+import { StatCardsSkeleton } from '@/components/Skeleton';
 import { Building2, Home, AlertCircle, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -46,50 +49,61 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando estadísticas...</p>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Inicio</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">Cargando tu resumen…</p>
         </div>
+        <StatCardsSkeleton />
       </div>
     );
   }
+
+  const firstName = user?.full_name?.split(' ')[0] || '';
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+          {firstName ? `Hola, ${firstName}` : 'Inicio'}
+        </h1>
         <p className="mt-2 text-gray-600 dark:text-gray-400">
-          Resumen general del fraccionamiento Paseo Coto Tonalá
+          Este es el resumen del fraccionamiento Paseo Coto Tonalá.
         </p>
       </div>
+
+      {/* Banner de bienvenida / primeros pasos (solo admin) */}
+      {isAdmin && <WelcomeChecklist stats={stats} />}
+
+      {/* Accesos rápidos (solo admin/supervisor) */}
+      {isAdmin && <QuickActions />}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Total Propiedades"
+          title="Casas"
           value={stats?.totalProperties || 0}
           icon={Building2}
-          description="Casas registradas"
+          description="Registradas en el coto"
           color="blue"
         />
         <StatCard
-          title="Propiedades Ocupadas"
+          title="Casas habitadas"
           value={stats?.occupiedProperties || 0}
           icon={Home}
-          description={`${stats?.vacantProperties || 0} vacías`}
+          description={`${stats?.vacantProperties || 0} sin habitar`}
           color="green"
         />
         <StatCard
-          title="Cuotas Pendientes"
+          title="Cuotas por cobrar"
           value={stats?.pendingFees || 0}
           icon={AlertCircle}
-          description={`${stats?.overdueFeesCount || 0} vencidas`}
+          description={`${stats?.overdueFeesCount || 0} ya vencidas`}
           color="yellow"
         />
         <StatCard
-          title="Pagos del Mes"
+          title="Cobrado este mes"
           value={`$${(stats?.monthlyPaymentsAmount || 0).toLocaleString()}`}
           icon={DollarSign}
           description={`${stats?.monthlyPayments || 0} pagos`}
@@ -106,7 +120,7 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Pagos Recientes
+              Últimos pagos
             </h2>
           </div>
           <div className="p-6">
@@ -150,7 +164,7 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Próximas Cuotas por Vencer
+              Cuotas próximas a vencer
             </h2>
           </div>
           <div className="p-6">

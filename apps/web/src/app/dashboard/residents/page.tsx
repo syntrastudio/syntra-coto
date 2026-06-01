@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import { Search, Plus, Edit, Trash2, X, Mail, Phone, Calendar, User } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, X, Mail, Phone, Calendar, User, Users } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import type { Resident, CreateResidentInput, UpdateResidentInput } from '@/types';
 
 export default function ResidentsPage() {
@@ -51,19 +53,19 @@ export default function ResidentsPage() {
       const userData = (result.user as any)?.data;
       if (userData) {
         if (userData.email_sent) {
-          alert('✅ Residente creado.\nCuenta de acceso generada y correo enviado.');
+          toast.success('Vecino registrado', { description: 'Se creó su cuenta y se le envió un correo con su contraseña.' });
         } else if (userData.email_skipped) {
-          alert('✅ Residente creado.\n⚠️ Cuenta generada pero el envío de correo está deshabilitado en el server.');
+          toast.success('Vecino registrado', { description: 'Cuenta creada, pero el envío de correos está apagado. Dale la contraseña tú mismo.' });
         } else {
-          alert('✅ Residente creado.\n⚠️ Cuenta generada pero el correo no se envió.');
+          toast.warning('Vecino registrado', { description: 'Cuenta creada, pero el correo no se pudo enviar. Avísale manualmente.' });
         }
       } else {
-        alert('✅ Residente creado.');
+        toast.success('Vecino registrado');
       }
     },
     onError: (error: Error) => {
-      console.error('❌ Error al crear residente:', error);
-      alert(`❌ Error: ${error.message}`);
+      console.error('Error al crear residente:', error);
+      toast.error('No se pudo registrar al vecino', { description: error.message });
     },
   });
 
@@ -74,10 +76,10 @@ export default function ResidentsPage() {
       queryClient.invalidateQueries({ queryKey: ['residents'] });
       setShowModal(false);
       setEditingResident(null);
-      alert('✅ Residente actualizado exitosamente');
+      toast.success('Datos del vecino actualizados');
     },
     onError: (error: Error) => {
-      alert(`❌ Error al actualizar residente: ${error.message}`);
+      toast.error('No se pudo actualizar', { description: error.message });
     },
   });
 
@@ -87,10 +89,10 @@ export default function ResidentsPage() {
       queryClient.invalidateQueries({ queryKey: ['residents'] });
       queryClient.invalidateQueries({ queryKey: ['properties'] });
       setShowDeleteConfirm(null);
-      alert('✅ Residente eliminado');
+      toast.success('Vecino eliminado del padrón');
     },
     onError: (e: Error) => {
-      alert(`❌ Error al eliminar residente: ${e.message}`);
+      toast.error('No se pudo eliminar', { description: e.message });
     },
   });
 
@@ -372,23 +374,20 @@ export default function ResidentsPage() {
             </div>
           )}
         </>
+      ) : (search || typeFilter || statusFilter) ? (
+        <EmptyState
+          icon={Search}
+          title="Ningún vecino coincide"
+          description="Prueba con otro nombre o quita los filtros para ver a todos los vecinos."
+        />
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center transition-colors">
-          <User className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-            No se encontraron residentes
-          </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
-            Comienza agregando un nuevo residente
-          </p>
-          <button
-            onClick={openCreateModal}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg transition-colors"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Agregar Residente
-          </button>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="Aún no hay vecinos en el padrón"
+          description="Empieza registrando al primer vecino. Después podrás asignarle su casa y crearle una cuenta de acceso."
+          actionLabel="Registrar primer vecino"
+          onAction={openCreateModal}
+        />
       )}
 
       {/* Create/Edit Modal */}

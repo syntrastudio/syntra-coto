@@ -4,6 +4,7 @@ export const runtime = 'edge';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth-context';
 import { Wallet, FileText, Car, User, Save, AlertTriangle, CheckCircle, Ticket } from 'lucide-react';
 import { format } from 'date-fns';
@@ -282,16 +283,16 @@ function ProfileTab() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['me-profile'] });
       refetchUser();
-      alert('Datos actualizados');
+      toast.success('Datos actualizados');
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo guardar', { description: e.message }),
   });
 
   const updatePassword = useMutation({
     mutationFn: (body: { current_password: string; new_password: string }) =>
       apiPut('/api/me/password', body, token),
-    onSuccess: () => alert('Contraseña actualizada'),
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onSuccess: () => toast.success('Contraseña actualizada'),
+    onError: (e: Error) => toast.error('No se pudo cambiar la contraseña', { description: e.message }),
   });
 
   return (
@@ -339,7 +340,7 @@ function ProfileTab() {
             const fd = new FormData(e.currentTarget);
             const np = String(fd.get('new_password') || '');
             const conf = String(fd.get('confirm') || '');
-            if (np !== conf) { alert('Las contraseñas no coinciden'); return; }
+            if (np !== conf) { toast.error('Las contraseñas no coinciden'); return; }
             updatePassword.mutate({
               current_password: String(fd.get('current_password') || ''),
               new_password: np,

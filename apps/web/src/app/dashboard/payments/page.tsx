@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import {
   Calendar,
@@ -14,6 +15,9 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Help } from '@/components/Help';
+import { TableSkeleton } from '@/components/Skeleton';
+import { EmptyState } from '@/components/EmptyState';
 import type { Property } from '@/types';
 
 type PaymentMode = 'fee' | 'fifo' | 'annual';
@@ -114,15 +118,23 @@ export default function PaymentsPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-center py-10 text-gray-500">Cargando pagos...</div>
+        <TableSkeleton rows={6} cols={6} />
       ) : !data?.data || data.data.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
-          <Receipt className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No hay pagos</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            Registra el primer pago con el botón de arriba.
-          </p>
-        </div>
+        (propertyFilter || methodFilter) ? (
+          <EmptyState
+            icon={Receipt}
+            title="No hay pagos con esos filtros"
+            description="Prueba con otra casa o método de pago, o limpia los filtros."
+          />
+        ) : (
+          <EmptyState
+            icon={Receipt}
+            title="Aún no hay pagos registrados"
+            description="Cuando un vecino pague su cuota, regístralo aquí y se generará el recibo automáticamente."
+            actionLabel="Registrar el primer pago"
+            onAction={() => setShowModal(true)}
+          />
+        )
       ) : (
         <>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -295,23 +307,25 @@ function RegisterPaymentModal({ properties, onClose }: { properties: Property[];
       qc.invalidateQueries({ queryKey: ['property-fees'] });
       qc.invalidateQueries({ queryKey: ['mesa-balances'] });
       const d = resp?.data;
-      let msg = 'Pago registrado.';
       if (mode === 'annual' && d?.charged) {
-        msg = `Pago anual: $${Number(d.charged).toLocaleString('es-MX')} cobrados, ${d.fees_paid} cuotas liquidadas, ${d.bonus_months} meses bonificados.`;
+        toast.success('Pago anual registrado', {
+          description: `$${Number(d.charged).toLocaleString('es-MX')} cobrados · ${d.fees_paid} cuotas liquidadas · ${d.bonus_months} meses bonificados.`,
+        });
       } else if (d?.folio) {
-        msg = `Pago registrado con folio ${d.folio}.`;
+        toast.success('Pago registrado', { description: `Folio ${d.folio}. Se envió el recibo por correo.` });
+      } else {
+        toast.success('Pago registrado');
       }
-      alert(msg);
       onClose();
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo registrar el pago', { description: e.message }),
   });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!propertyId) { alert('Selecciona una propiedad'); return; }
-    if (mode === 'fee' && !feeId) { alert('Selecciona una cuota'); return; }
-    if (mode !== 'annual' && (!amount || Number(amount) <= 0)) { alert('Ingresa un monto válido'); return; }
+    if (!propertyId) { toast.error('Falta elegir la casa'); return; }
+    if (mode === 'fee' && !feeId) { toast.error('Falta elegir la cuota a pagar'); return; }
+    if (mode !== 'annual' && (!amount || Number(amount) <= 0)) { toast.error('Escribe un monto válido'); return; }
     createMut.mutate();
   };
 
@@ -319,12 +333,16 @@ function RegisterPaymentModal({ properties, onClose }: { properties: Property[];
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Registrar pago</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              Registrar pago
+              <Help text="Elige cómo aplicar el pago: a la casa (lo más común), a una cuota específica, o el año completo con 2 meses de regalo." />
+            </h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
               <X className="h-6 w-6" />
             </button>
           </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">¿Cómo quieres cobrar?</p>
 
           {/* Mode selector */}
           <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 dark:bg-gray-900 rounded-lg mb-5">
@@ -332,8 +350,8 @@ function RegisterPaymentModal({ properties, onClose }: { properties: Property[];
               active={mode === 'fifo'}
               onClick={() => setMode('fifo')}
               icon={<ChevronsRight className="h-4 w-4" />}
-              label="A propiedad"
-              hint="FIFO"
+              label="A la casa"
+              hint="lo más fácil"
             />
             <ModeButton
               active={mode === 'fee'}

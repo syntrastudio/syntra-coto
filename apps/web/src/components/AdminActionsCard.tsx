@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
+import { useConfirm } from '@/components/ConfirmDialog';
 import {
   PlayCircle,
   FileText,
@@ -24,52 +26,61 @@ interface ActionDef {
   icon: typeof PlayCircle;
   color: string;
   superAdminOnly?: boolean;
-  confirm: string;
+  confirmTitle: string;
+  confirmDesc: string;
+  tone?: 'default' | 'warning';
   run: () => Promise<any>;
 }
 
 export function AdminActionsCard() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [lastResult, setLastResult] = useState<{ key: ActionKey; data: any } | null>(null);
   const [expanded, setExpanded] = useState(false);
 
   const actions: ActionDef[] = [
     {
       key: 'generate',
-      label: 'Generar cuotas del mes',
-      description: 'Crea las cuotas mensuales del mes en curso con el monto configurado',
+      label: 'Cobrar mantenimiento del mes',
+      description: 'Crea la cuota de este mes para todas las casas, con el monto configurado',
       icon: FileText,
       color: 'blue',
-      confirm: '¿Generar las cuotas mensuales del mes en curso? Se omitirán las propiedades que ya tengan cuota generada este mes.',
+      confirmTitle: '¿Generar las cuotas de este mes?',
+      confirmDesc: 'Se creará la cuota de mantenimiento para todas las casas. Las casas que ya tengan cuota de este mes se omiten (no se duplica).',
       run: () => apiClient.generateCurrentMonthFees(),
     },
     {
       key: 'late_fees',
-      label: 'Aplicar recargos del mes',
-      description: 'Aplica recargo del 15% sobre cuotas vencidas no liquidadas (idempotente)',
+      label: 'Aplicar recargos por atraso',
+      description: 'Suma el recargo del 15% a las cuotas vencidas que no se han pagado',
       icon: AlertTriangle,
       color: 'amber',
-      confirm: '¿Aplicar recargo del 15% a todas las cuotas vencidas? Es idempotente — no se duplican recargos.',
+      tone: 'warning',
+      confirmTitle: '¿Aplicar recargo del 15%?',
+      confirmDesc: 'Se sumará el recargo a todas las cuotas vencidas sin pagar. Es seguro repetirlo: no se duplican los recargos.',
       run: () => apiClient.applyLateFees(),
     },
     {
       key: 'delinquency',
-      label: 'Recalcular morosidad',
-      description: 'Actualiza el estado de mora (al_corriente / mora_1_mes / mora_2_meses / suspendido) de cada propiedad',
+      label: 'Actualizar quién debe',
+      description: 'Revisa cada casa y marca su estado: al corriente, atrasada o suspendida',
       icon: RefreshCw,
       color: 'purple',
-      confirm: '¿Recalcular el estado de morosidad de todas las propiedades?',
+      confirmTitle: '¿Actualizar el estado de morosidad?',
+      confirmDesc: 'Se revisará cada casa y se marcará si está al corriente, con 1 mes de atraso, 2 meses o suspendida.',
       run: () => apiClient.recalculateDelinquency(),
     },
     {
       key: 'full_cycle',
-      label: 'Ejecutar ciclo completo',
-      description: 'Corre las 3 tareas anteriores + envía recordatorios automáticos (igual que el cron diario)',
+      label: 'Hacer todo de una vez',
+      description: 'Cobra el mes, aplica recargos, actualiza morosidad y envía los correos (igual que lo automático)',
       icon: Zap,
       color: 'green',
       superAdminOnly: true,
-      confirm: '¿Ejecutar el CICLO COMPLETO? Esto enviará correos a los residentes con cuotas próximas a vencer o vencidas.',
+      tone: 'warning',
+      confirmTitle: '¿Ejecutar el ciclo completo?',
+      confirmDesc: 'Hará las 3 tareas anteriores y ENVIARÁ CORREOS a los vecinos con cuotas por vencer o vencidas. Úsalo con cuidado.',
       run: () => apiClient.runFullCycle(),
     },
   ];
@@ -82,21 +93,27 @@ export function AdminActionsCard() {
     onSuccess: (result) => {
       setLastResult(result);
       setExpanded(true);
+      toast.success('Listo, tarea ejecutada');
       qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
       qc.invalidateQueries({ queryKey: ['payments'] });
       qc.invalidateQueries({ queryKey: ['fees'] });
       qc.invalidateQueries({ queryKey: ['properties'] });
     },
-    onError: (e: Error) => alert(`Error: ${e.message}`),
+    onError: (e: Error) => toast.error('No se pudo ejecutar la tarea', { description: e.message }),
   });
 
-  const runAction = (action: ActionDef) => {
+  const runAction = async (action: ActionDef) => {
     if (action.superAdminOnly && user?.role !== 'super_admin') {
-      alert('Solo super_admin puede ejecutar el ciclo completo');
+      toast.error('Solo el administrador principal puede hacer esto');
       return;
     }
-    if (!confirm(action.confirm)) return;
-    mutation.mutate(action);
+    const ok = await confirm({
+      title: action.confirmTitle,
+      description: action.confirmDesc,
+      confirmText: 'Sí, continuar',
+      tone: action.tone || 'default',
+    });
+    if (ok) mutation.mutate(action);
   };
 
   const colorClasses: Record<string, string> = {
@@ -149,21 +166,63 @@ export function AdminActionsCard() {
 
       {lastResult && (
         <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
-          >
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <span>Última ejecución: {actions.find((a) => a.key === lastResult.key)?.label}</span>
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-          {expanded && (
-            <pre className="mt-3 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs font-mono text-gray-700 dark:text-gray-300 overflow-x-auto whitespace-pre-wrap">
+          <div className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-medium text-gray-900 dark:text-gray-100">
+                {actions.find((a) => a.key === lastResult.key)?.label}: completado
+              </p>
+              <ul className="mt-1 space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+                {summarizeResult(lastResult.data).map((line, i) => (
+                  <li key={i}>• {line}</li>
+                ))}
+              </ul>
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-2 inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                {expanded ? 'Ocultar' : 'Ver'} detalle técnico
+              </button>
+              {expanded && (
+                <pre className="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded text-[11px] font-mono text-gray-600 dark:text-gray-400 overflow-x-auto whitespace-pre-wrap">
 {JSON.stringify(lastResult.data, null, 2)}
-            </pre>
-          )}
+                </pre>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </section>
   );
+}
+
+/**
+ * Traduce el objeto de resultado del backend a líneas legibles en español.
+ * Cubre las claves comunes; lo que no reconoce simplemente no lo muestra.
+ */
+function summarizeResult(data: any): string[] {
+  if (!data || typeof data !== 'object') return ['Tarea ejecutada.'];
+  const lines: string[] = [];
+  const n = (v: any) => (typeof v === 'number' ? v : Number(v?.count ?? v ?? 0));
+
+  // Generación de cuotas
+  const gen = data.generated ?? data;
+  if (gen && (gen.created != null || gen.skipped != null)) {
+    if (gen.created != null) lines.push(`${n(gen.created)} cuotas nuevas creadas`);
+    if (gen.skipped != null) lines.push(`${n(gen.skipped)} casas omitidas (ya tenían cuota)`);
+    if (gen.credit_applied != null) lines.push(`${n(gen.credit_applied)} con saldo a favor aplicado`);
+  }
+  // Recargos
+  const lf = data.late_fees ?? data;
+  if (lf && lf.fees_charged != null) lines.push(`${n(lf.fees_charged)} cuotas con recargo aplicado`);
+  // Morosidad
+  const del = data.delinquency ?? data;
+  if (del && del.updated != null) lines.push(`${n(del.updated)} casas actualizadas`);
+  if (del && del.suspended != null) lines.push(`${n(del.suspended)} casas suspendidas`);
+  // Notificaciones
+  const no = data.notifications ?? data;
+  if (no && no.sent != null) lines.push(`${n(no.sent)} correos enviados`);
+
+  return lines.length ? lines : ['Tarea ejecutada correctamente.'];
 }

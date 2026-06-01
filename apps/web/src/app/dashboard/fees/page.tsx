@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { Receipt, Calendar, AlertCircle } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -178,13 +179,18 @@ export default function FeesPage() {
             </div>
           )}
         </>
+      ) : statusFilter ? (
+        <EmptyState
+          icon={AlertCircle}
+          title="No hay cuotas con ese estado"
+          description="Prueba con otro filtro para ver más cuotas."
+        />
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center transition-colors">
-          <AlertCircle className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-            No se encontraron cuotas
-          </h3>
-        </div>
+        <EmptyState
+          icon={Receipt}
+          title="Aún no hay cuotas generadas"
+          description="Las cuotas se crean solas el día 1 de cada mes. También puedes generarlas a mano desde el botón 'Cobrar mantenimiento del mes' en Inicio."
+        />
       )}
     </div>
   );

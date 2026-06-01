@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import { Search, Plus, Edit, Trash2, X } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, X, Building2 } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import type { Property, CreatePropertyInput, Resident } from '@/types';
 import { STREETS } from '@/lib/streets';
 
@@ -44,12 +46,11 @@ export default function PropertiesPage() {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
       setShowModal(false);
       setEditingProperty(null);
-      // Mostrar mensaje de éxito
-      alert('✅ Propiedad creada exitosamente');
+      toast.success('Casa registrada');
     },
     onError: (error: Error) => {
-      console.error('❌ Error al crear propiedad:', error);
-      alert(`❌ Error al crear propiedad: ${error.message}`);
+      console.error('Error al crear propiedad:', error);
+      toast.error('No se pudo registrar la casa', { description: error.message });
     },
   });
 
@@ -60,11 +61,11 @@ export default function PropertiesPage() {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
       setShowModal(false);
       setEditingProperty(null);
-      alert('✅ Propiedad actualizada exitosamente');
+      toast.success('Casa actualizada');
     },
     onError: (error: Error) => {
-      console.error('❌ Error al actualizar propiedad:', error);
-      alert(`❌ Error al actualizar propiedad: ${error.message}`);
+      console.error('Error al actualizar propiedad:', error);
+      toast.error('No se pudo actualizar la casa', { description: error.message });
     },
   });
 
@@ -73,6 +74,10 @@ export default function PropertiesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
       setDeleteConfirm(null);
+      toast.success('Casa eliminada');
+    },
+    onError: (error: Error) => {
+      toast.error('No se pudo eliminar la casa', { description: error.message });
     },
   });
 
@@ -298,15 +303,20 @@ export default function PropertiesPage() {
             </div>
           )}
         </>
+      ) : search || statusFilter ? (
+        <EmptyState
+          icon={Search}
+          title="Ninguna casa coincide"
+          description="Prueba con otro número, calle o quita los filtros para ver todas las casas."
+        />
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center transition-colors">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-            No se encontraron propiedades
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">
-            Intenta ajustar los filtros de búsqueda
-          </p>
-        </div>
+        <EmptyState
+          icon={Building2}
+          title="Aún no hay casas registradas"
+          description="Empieza dando de alta la primera casa del fraccionamiento."
+          actionLabel="Registrar primera casa"
+          onAction={() => { setEditingProperty(null); setShowModal(true); }}
+        />
       )}
 
       {/* Create/Edit Modal */}

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { KeyRound, Trash2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useConfirm } from '@/components/ConfirmDialog';
 import {
   listPasskeys,
   registerPasskey,
@@ -15,6 +17,7 @@ import {
 
 export function PasskeysSection() {
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const [supported, setSupported] = useState(false);
 
   useEffect(() => {
@@ -30,19 +33,22 @@ export function PasskeysSection() {
     mutationFn: () => registerPasskey(),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['my-passkeys'] });
-      alert(`Passkey registrada: ${r.device_name}`);
+      toast.success('Dispositivo registrado', { description: `Ya puedes entrar con ${r.device_name}.` });
     },
     onError: (e: Error) => {
       const msg = e.message || '';
       if (/cancel|abort|NotAllowedError/i.test(msg)) return;
-      alert('Error: ' + msg);
+      toast.error('No se pudo registrar el dispositivo', { description: msg });
     },
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => deletePasskey(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-passkeys'] }),
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-passkeys'] });
+      toast.success('Dispositivo eliminado');
+    },
+    onError: (e: Error) => toast.error('No se pudo eliminar', { description: e.message }),
   });
 
   return (
@@ -94,8 +100,14 @@ export function PasskeysSection() {
                 </p>
               </div>
               <button
-                onClick={() => {
-                  if (confirm(`¿Eliminar la passkey "${pk.device_name}"?`)) remove.mutate(pk.id);
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: '¿Quitar este dispositivo?',
+                    description: `Ya no podrás entrar con "${pk.device_name}". Podrás volver a registrarlo cuando quieras.`,
+                    confirmText: 'Sí, quitar',
+                    tone: 'danger',
+                  });
+                  if (ok) remove.mutate(pk.id);
                 }}
                 className="text-red-600 hover:text-red-800"
                 title="Eliminar"

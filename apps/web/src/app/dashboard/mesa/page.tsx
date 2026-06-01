@@ -4,6 +4,7 @@ export const runtime = 'edge';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -138,9 +139,9 @@ function MemberDrawer({
       qc.invalidateQueries({ queryKey: ['mesa-balances'] });
       qc.invalidateQueries({ queryKey: ['mesa-member', userId] });
       setMode('view');
-      alert('Depósito registrado');
+      toast.success('Depósito al banco registrado');
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo registrar el depósito', { description: e.message }),
   });
 
   const transferMut = useMutation({
@@ -150,9 +151,9 @@ function MemberDrawer({
       qc.invalidateQueries({ queryKey: ['mesa-balances'] });
       qc.invalidateQueries({ queryKey: ['mesa-member', userId] });
       setMode('view');
-      alert('Transferencia registrada');
+      toast.success('Transferencia registrada');
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo registrar la transferencia', { description: e.message }),
   });
 
   return (
@@ -254,8 +255,8 @@ function DepositForm({ maxAmount, pending, onCancel, onSubmit }: {
       onSubmit={(e) => {
         e.preventDefault();
         const a = Number(amount);
-        if (!a || a <= 0) { alert('Monto inválido'); return; }
-        if (a > maxAmount) { alert(`No puedes depositar más de tu balance ($${maxAmount})`); return; }
+        if (!a || a <= 0) { toast.error('Escribe un monto válido'); return; }
+        if (a > maxAmount) { toast.error(`No puedes depositar más de tu saldo ($${maxAmount.toLocaleString('es-MX')})`); return; }
         onSubmit({ amount: a, notes: notes || undefined });
       }}
       className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3"
@@ -297,10 +298,10 @@ function TransferForm({ fromUserId: _from, maxAmount, members, pending, onCancel
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (!toId) { alert('Selecciona destinatario'); return; }
+        if (!toId) { toast.error('Elige a quién le entregas el dinero'); return; }
         const a = Number(amount);
-        if (!a || a <= 0) { alert('Monto inválido'); return; }
-        if (a > maxAmount) { alert(`No puedes transferir más de tu balance ($${maxAmount})`); return; }
+        if (!a || a <= 0) { toast.error('Escribe un monto válido'); return; }
+        if (a > maxAmount) { toast.error(`No puedes entregar más de tu saldo ($${maxAmount.toLocaleString('es-MX')})`); return; }
         onSubmit({ to_user_id: toId, amount: a, notes: notes || undefined });
       }}
       className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3"

@@ -2,11 +2,16 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Car, Search } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { EmptyState } from '@/components/EmptyState';
 import type { Vehicle, VehicleFilters, CreateVehicleInput, UpdateVehicleInput, Property } from '@/types';
 
 export default function VehiclesPage() {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [filters, setFilters] = useState<VehicleFilters>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
@@ -45,10 +50,10 @@ export default function VehiclesPage() {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       setIsModalOpen(false);
       resetForm();
-      alert('Vehículo registrado exitosamente');
+      toast.success('Vehículo registrado');
     },
     onError: (error: Error) => {
-      alert(`Error al registrar vehículo: ${error.message}`);
+      toast.error('No se pudo registrar el vehículo', { description: error.message });
     },
   });
 
@@ -61,10 +66,10 @@ export default function VehiclesPage() {
       setIsModalOpen(false);
       setEditingVehicle(null);
       resetForm();
-      alert('Vehículo actualizado exitosamente');
+      toast.success('Vehículo actualizado');
     },
     onError: (error: Error) => {
-      alert(`Error al actualizar vehículo: ${error.message}`);
+      toast.error('No se pudo actualizar el vehículo', { description: error.message });
     },
   });
 
@@ -73,10 +78,10 @@ export default function VehiclesPage() {
     mutationFn: (id: string) => apiClient.deleteVehicle(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-      alert('Vehículo eliminado exitosamente');
+      toast.success('Vehículo eliminado');
     },
     onError: (error: Error) => {
-      alert(`Error al eliminar vehículo: ${error.message}`);
+      toast.error('No se pudo eliminar el vehículo', { description: error.message });
     },
   });
 
@@ -118,10 +123,14 @@ export default function VehiclesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('¿Está seguro de eliminar este vehículo?')) {
-      deleteMutation.mutate(id);
-    }
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({
+      title: '¿Eliminar este vehículo?',
+      description: 'Se quitará del registro de autos del coto. Esta acción no se puede deshacer.',
+      confirmText: 'Sí, eliminar',
+      tone: 'danger',
+    });
+    if (ok) deleteMutation.mutate(id);
   };
 
   const vehicles = vehiclesData || [];
@@ -188,11 +197,26 @@ export default function VehiclesPage() {
       </div>
 
       {/* Tabla de vehículos */}
+      {!isLoading && vehicles.length === 0 ? (
+        (filters.search || filters.property_id || filters.status) ? (
+          <EmptyState
+            icon={Search}
+            title="Ningún vehículo coincide"
+            description="Prueba con otras placas o quita los filtros para ver todos los autos."
+          />
+        ) : (
+          <EmptyState
+            icon={Car}
+            title="Aún no hay vehículos registrados"
+            description="Da de alta los autos de cada casa para llevar el control de quién entra al coto."
+            actionLabel="Agregar primer vehículo"
+            onAction={() => { setEditingVehicle(null); resetForm(); setIsModalOpen(true); }}
+          />
+        )
+      ) : (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
         {isLoading ? (
           <div className="p-8 text-center text-gray-600 dark:text-gray-400">Cargando...</div>
-        ) : vehicles.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">No hay vehículos registrados</div>
         ) : (
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900">
@@ -249,6 +273,7 @@ export default function VehiclesPage() {
           </table>
         )}
       </div>
+      )}
 
       {/* Modal de formulario */}
       {isModalOpen && (

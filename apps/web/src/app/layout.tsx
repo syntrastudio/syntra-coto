@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { ThemeProvider } from '@/lib/theme-context';
+import { ConfirmProvider } from '@/components/ConfirmDialog';
 import { Toaster } from 'sonner';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -35,8 +36,16 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider>
           <AuthProvider>
-            {children}
-            <Toaster position="top-right" richColors />
+            <ConfirmProvider>
+              {children}
+            </ConfirmProvider>
+            <Toaster
+              position="top-center"
+              richColors
+              closeButton
+              duration={5000}
+              toastOptions={{ style: { fontSize: '15px' } }}
+            />
           </AuthProvider>
         </ThemeProvider>
       </body>

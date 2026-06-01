@@ -559,6 +559,11 @@ class ApiClient {
     return this.request('/api/assistant/ask', { method: 'POST', body: JSON.stringify({ question }) });
   }
 
+  // Asistente de uso de la app ("¿cómo hago X?")
+  async askHelp(question: string): Promise<ApiResponse<{ answer: string; neurons: number; elapsed_ms: number }>> {
+    return this.request('/api/assistant/help', { method: 'POST', body: JSON.stringify({ question }) });
+  }
+
   async getAssistantHistory(): Promise<ApiResponse<any[]>> {
     return this.request('/api/assistant/history');
   }

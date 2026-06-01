@@ -188,6 +188,119 @@ ${reglamento}`;
   }
 });
 
+// ============================================================================
+// ASISTENTE DE USO DE LA APP ("¿cómo hago X?") — para administradores
+// ============================================================================
+
+// Manual embebido del sistema. Es el "conocimiento" del bot de ayuda.
+const APP_MANUAL = `Eres el asistente de uso del sistema de administración del condominio
+"Paseo Coto Tonalá" (la app web Syntra). Ayudas a los administradores y miembros de la
+mesa directiva —que NO son técnicos— a usar la aplicación.
+
+CÓMO ESTÁ ORGANIZADA LA APP (menú de la izquierda):
+- Inicio: resumen con números clave, accesos rápidos y botones para correr el ciclo de cobranza.
+- Casas: todas las propiedades, su dueño/inquilino y su estado de pago (al corriente / con adeudo).
+- Vecinos: padrón de residentes. Aquí se dan de alta y se les puede crear una cuenta de acceso.
+- Vehículos: autos registrados por casa.
+- Cuotas: las cuotas de mantenimiento mensuales de cada casa.
+- Pagos: registrar pagos y ver el historial. Cada pago genera un recibo por correo.
+- Caja de la mesa: el efectivo que tiene cada miembro de la mesa; depósitos al banco y transferencias.
+- Solicitudes: reportes/quejas que abren los vecinos (tickets).
+- Reglamento: el PDF del reglamento y un bot para preguntar sobre él.
+- ¿Cómo se usa?: guías paso a paso.
+- Configuración: ajustes (cuota mensual, recargos, usuarios, etc.). Solo admins.
+
+TAREAS COMUNES:
+- Registrar un pago: Pagos → "Registrar pago" → elegir "A la casa" (lo más fácil) → casa, monto, método → Registrar. El sobrante queda como saldo a favor.
+- Pago anual: en Pagos, modo "Pago anual": cobra 10 meses y regala 2 (según reglamento).
+- Dar de alta vecino con acceso: Vecinos → "Registrar vecino" → marcar "Crear cuenta de acceso" → le llega correo con contraseña.
+- Cobrar mantenimiento del mes: se hace solo el día 1; manual desde Inicio → "Cobrar mantenimiento del mes".
+- Ver morosos: Casas muestra el estado de pago de cada una; o el botón "Actualizar quién debe" en Inicio.
+- Entrar sin contraseña: Configuración → Mi cuenta → "Agregar este dispositivo" (huella / Face ID).
+- Restablecer contraseña de alguien: Configuración → Usuarios → ícono de llave junto al usuario.
+
+REGLAS DE COBRANZA (del reglamento):
+- Cuota mensual fija configurable.
+- Recargo del 15% por mes vencido.
+- Mora 1 mes = restricciones; 2 meses o más = suspensión.
+- Todo esto lo calcula el sistema automáticamente cada día a las 8am.
+
+CÓMO RESPONDER:
+- Responde SOLO sobre cómo usar esta app. Si te preguntan algo ajeno (clima, etc.), dilo amablemente.
+- Da pasos numerados, cortos y claros. Menciona el nombre exacto del menú entre comillas.
+- Lenguaje sencillo, sin tecnicismos. Español. Máximo 5 pasos o 2 párrafos.
+- Si no estás seguro, sugiere ir a la sección "¿Cómo se usa?".`;
+
+const helpSchema = z.object({
+  question: z.string().min(3).max(500),
+});
+
+assistant.post('/help', authMiddleware, requireRole('admin', 'super_admin', 'supervisor'), zValidator('json', helpSchema), async (c) => {
+  try {
+    const user = c.get('user')!;
+    const { question } = c.req.valid('json');
+
+    // 1) ¿Habilitado?
+    const enabledRow = await c.env.DB
+      .prepare("SELECT value FROM system_settings WHERE key = 'ai_enabled'")
+      .first<{ value: string }>();
+    if ((enabledRow?.value || 'true') !== 'true') {
+      await logUsage(c.env.DB, user.id, `[help] ${question}`, null, 0, 0, 'blocked_disabled', 'Bot deshabilitado');
+      return errorResp(c, 'El asistente está temporalmente deshabilitado.', 503);
+    }
+
+    // 2) Límite diario (mismo presupuesto que el bot del reglamento)
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const startOfDay = Math.floor(today.getTime() / 1000);
+    const usageRow = await c.env.DB
+      .prepare('SELECT COALESCE(SUM(neurons), 0) AS used FROM ai_usage_log WHERE created_at >= ?')
+      .bind(startOfDay)
+      .first<{ used: number }>();
+    const limitRow = await c.env.DB
+      .prepare("SELECT value FROM system_settings WHERE key = 'ai_daily_neuron_limit'")
+      .first<{ value: string }>();
+    const limit = Number(limitRow?.value || 9500);
+    const used = Number(usageRow?.used || 0);
+    if (used / limit >= 0.95) {
+      await logUsage(c.env.DB, user.id, `[help] ${question}`, null, 0, 0, 'blocked_limit', `Límite alcanzado (${used.toFixed(0)}/${limit})`);
+      return errorResp(c, 'Se alcanzó el límite diario del asistente. Inténtalo mañana.', 429);
+    }
+
+    // 3) Llamar a Workers AI con el manual como contexto
+    const startTs = Date.now();
+    const response: any = await c.env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        { role: 'system', content: APP_MANUAL },
+        { role: 'user', content: question },
+      ],
+      max_tokens: 400,
+    });
+    const elapsedMs = Date.now() - startTs;
+    const answer = response?.response || 'Sin respuesta del modelo.';
+
+    const tokensInput = Math.ceil((APP_MANUAL.length + question.length) / 4);
+    const tokensOutput = Math.ceil(answer.length / 4);
+    const neurons = (tokensInput / 1000) * 1.0 + (tokensOutput / 1000) * 9.0;
+
+    await logUsage(c.env.DB, user.id, `[help] ${question}`, answer, tokensInput, tokensOutput, 'success');
+
+    return success(c, {
+      answer,
+      neurons: Math.round(neurons * 100) / 100,
+      elapsed_ms: elapsedMs,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Error';
+    console.error('[help] error:', msg);
+    try {
+      const u = c.get('user');
+      await logUsage(c.env.DB, u?.id, '[help] ?', null, 0, 0, 'error', msg);
+    } catch {}
+    return serverError(c, msg);
+  }
+});
+
 // Histórico de uso (admin)
 assistant.get('/history', requireRole('admin', 'super_admin'), async (c) => {
   try {

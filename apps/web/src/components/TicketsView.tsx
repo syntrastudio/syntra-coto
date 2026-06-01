@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
+import { useConfirm } from '@/components/ConfirmDialog';
 import {
   Ticket as TicketIcon,
   Plus,
@@ -179,9 +181,9 @@ function NewTicketModal({ mode: _mode, onClose }: { mode: 'admin' | 'resident'; 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tickets'] });
       onClose();
-      alert('Ticket creado');
+      toast.success('Solicitud enviada');
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo enviar la solicitud', { description: e.message }),
   });
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -246,6 +248,7 @@ function NewTicketModal({ mode: _mode, onClose }: { mode: 'admin' | 'resident'; 
 function TicketDrawer({ ticketId, mode, onClose }: { ticketId: string; mode: 'admin' | 'resident'; onClose: () => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [commentText, setCommentText] = useState('');
   const [isInternal, setIsInternal] = useState(false);
 
@@ -261,7 +264,7 @@ function TicketDrawer({ ticketId, mode, onClose }: { ticketId: string; mode: 'ad
       qc.invalidateQueries({ queryKey: ['ticket', ticketId] });
       qc.invalidateQueries({ queryKey: ['tickets'] });
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo actualizar', { description: e.message }),
   });
 
   const commentMut = useMutation({
@@ -272,7 +275,7 @@ function TicketDrawer({ ticketId, mode, onClose }: { ticketId: string; mode: 'ad
       setCommentText('');
       setIsInternal(false);
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo enviar el comentario', { description: e.message }),
   });
 
   const isReporter = ticket?.reporter_user_id === user?.id;
@@ -366,12 +369,19 @@ function TicketDrawer({ ticketId, mode, onClose }: { ticketId: string; mode: 'ad
             {!isAdmin && isReporter && ticket.status === 'abierto' && (
               <div className="border-y border-gray-200 dark:border-gray-700 py-3">
                 <button
-                  onClick={() => {
-                    if (confirm('¿Cancelar este ticket?')) updateMut.mutate({ status: 'cancelado' });
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: '¿Cancelar esta solicitud?',
+                      description: 'Se marcará como cancelada y ya no se le dará seguimiento.',
+                      confirmText: 'Sí, cancelar',
+                      cancelText: 'No, dejarla abierta',
+                      tone: 'danger',
+                    });
+                    if (ok) updateMut.mutate({ status: 'cancelado' });
                   }}
                   className="text-sm text-red-600 hover:text-red-800"
                 >
-                  Cancelar este ticket
+                  Cancelar esta solicitud
                 </button>
               </div>
             )}

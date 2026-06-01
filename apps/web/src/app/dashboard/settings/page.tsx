@@ -2,9 +2,12 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
 import { Users, FileText, Settings as SettingsIcon, Plus, Edit, Trash2, X, Save, KeyRound, ChevronDown, ChevronRight, User as UserIcon, Mail } from 'lucide-react';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { Help } from '@/components/Help';
 import { PasskeysSection } from '@/components/PasskeysSection';
 import { NotificationsLogTab } from '@/components/NotificationsLogTab';
 import { format } from 'date-fns';
@@ -87,6 +90,7 @@ export default function SettingsPage() {
 // ============================================================================
 function UsersTab({ currentUser }: { currentUser: User }) {
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [selectedResidentId, setSelectedResidentId] = useState<string>('');
@@ -115,14 +119,14 @@ function UsersTab({ currentUser }: { currentUser: User }) {
       const sent = (resp as any)?.data?.email_sent;
       const skipped = (resp as any)?.data?.email_skipped;
       if (sent) {
-        alert('Usuario creado. Se envió un correo con la contraseña temporal.');
+        toast.success('Usuario creado', { description: 'Se le envió un correo con su contraseña temporal.' });
       } else if (skipped) {
-        alert('Usuario creado. ⚠️ El envío de correo está deshabilitado (configura RESEND_API_KEY y EMAIL_FROM).');
+        toast.warning('Usuario creado', { description: 'El envío de correos está apagado. Dale la contraseña manualmente.' });
       } else {
-        alert('Usuario creado. Pero el envío de correo falló — comunícale la contraseña manualmente.');
+        toast.warning('Usuario creado', { description: 'El correo no se pudo enviar. Comunícale la contraseña manualmente.' });
       }
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo crear el usuario', { description: e.message }),
   });
 
   const updateMut = useMutation({
@@ -131,14 +135,18 @@ function UsersTab({ currentUser }: { currentUser: User }) {
       qc.invalidateQueries({ queryKey: ['admin-users'] });
       setShowModal(false);
       setEditing(null);
+      toast.success('Usuario actualizado');
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo actualizar', { description: e.message }),
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => apiClient.deleteUser(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('Usuario eliminado');
+    },
+    onError: (e: Error) => toast.error('No se pudo eliminar', { description: e.message }),
   });
 
   const resetPasswordMut = useMutation({
@@ -147,40 +155,29 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     onSuccess: (resp) => {
       const d = (resp as any).data || {};
       if (d.temp_password) {
-        // El correo no se envió (o no está configurado); mostrar la contraseña
-        alert(
-          `Contraseña temporal generada:\n\n${d.temp_password}\n\nCopia esta contraseña y compártela manualmente. ` +
-          (d.email_skipped
-            ? '(El envío automático por correo está deshabilitado.)'
-            : '(El correo no pudo enviarse.)')
-        );
+        // El correo no se envió (o no está configurado); mostrar la contraseña con copia
+        navigator.clipboard?.writeText(d.temp_password).catch(() => {});
+        toast.success('Contraseña temporal generada', {
+          description: `${d.temp_password} — copiada al portapapeles. Compártela con el usuario.`,
+          duration: 15000,
+        });
       } else if (d.email_sent) {
-        alert('Contraseña restablecida. Se envió un correo al usuario.');
+        toast.success('Contraseña restablecida', { description: 'Se le envió un correo al usuario.' });
       } else {
-        alert('Contraseña restablecida.');
+        toast.success('Contraseña restablecida');
       }
     },
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onError: (e: Error) => toast.error('No se pudo restablecer la contraseña', { description: e.message }),
   });
 
-  const handleResetPassword = (u: User) => {
-    const choice = window.prompt(
-      `Restablecer contraseña de ${u.full_name}\n\n` +
-      `· Deja vacío para GENERAR una contraseña temporal y enviar por correo.\n` +
-      `· O escribe una contraseña manualmente (mín 8 caracteres, mayúscula y número).`,
-      ''
-    );
-    if (choice === null) return; // cancelado
-    if (choice.trim() === '') {
-      if (!confirm(`¿Generar una contraseña temporal para ${u.full_name} y enviarla por correo?`)) return;
-      resetPasswordMut.mutate({ id: u.id });
-    } else {
-      if (choice.length < 8) {
-        alert('La contraseña debe tener al menos 8 caracteres.');
-        return;
-      }
-      resetPasswordMut.mutate({ id: u.id, password: choice });
-    }
+  const handleResetPassword = async (u: User) => {
+    const ok = await confirm({
+      title: `¿Restablecer la contraseña de ${u.full_name}?`,
+      description: 'Se generará una contraseña temporal nueva y se le enviará por correo (o te la mostramos para que se la pases tú mismo).',
+      confirmText: 'Sí, restablecer',
+      tone: 'warning',
+    });
+    if (ok) resetPasswordMut.mutate({ id: u.id });
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -196,7 +193,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
       updateMut.mutate({ id: editing.id, payload });
     } else {
       if (!selectedResidentId) {
-        alert('Selecciona un residente');
+        toast.error('Elige primero al vecino');
         return;
       }
       createMut.mutate({
@@ -278,8 +275,14 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                     </button>
                     {u.id !== currentUser.id && (
                       <button
-                        onClick={() => {
-                          if (confirm(`¿Eliminar a ${u.full_name}?`)) deleteMut.mutate(u.id);
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `¿Eliminar a ${u.full_name}?`,
+                            description: 'Perderá el acceso al sistema. Esta acción no se puede deshacer.',
+                            confirmText: 'Sí, eliminar',
+                            tone: 'danger',
+                          });
+                          if (ok) deleteMut.mutate(u.id);
                         }}
                         title="Eliminar"
                         className="text-red-600 hover:text-red-800"
@@ -557,6 +560,33 @@ function AuditLogsTab() {
 // ============================================================================
 // GENERAL TAB (system_settings)
 // ============================================================================
+
+// Nombres de categoría en español (las keys vienen del backend en inglés)
+const CATEGORY_LABELS: Record<string, string> = {
+  general: 'General',
+  fees: 'Cuotas y mantenimiento',
+  cobranza: 'Cuotas y mantenimiento',
+  amenities: 'Áreas comunes (terraza)',
+  notifications: 'Correos y avisos',
+  email: 'Correos y avisos',
+  ai: 'Asistente con IA',
+};
+
+// Etiqueta legible + ayuda para cada setting (key técnica → texto humano)
+const SETTING_LABELS: Record<string, { label: string; help?: string }> = {
+  maintenance_fee_amount: { label: 'Cuota mensual de mantenimiento', help: 'Lo que paga cada casa al mes. Con este monto se generan las cuotas automáticamente.' },
+  annual_prepayment_discount_months: { label: 'Meses bonificados por pago anual', help: 'Cuántos meses se regalan al pagar el año completo por adelantado. Por reglamento son 2.' },
+  late_fee_percentage: { label: 'Recargo por atraso (%)', help: 'Porcentaje que se suma a una cuota vencida por cada mes de atraso. Por reglamento es 15%.' },
+  timezone: { label: 'Zona horaria', help: 'Zona horaria para fechas y para la hora del cobro automático.' },
+  currency: { label: 'Moneda' },
+  fee_due_day: { label: 'Día de vencimiento de la cuota', help: 'Día del mes en que vence la cuota de mantenimiento.' },
+  terrace_deposit_amount: { label: 'Terraza — depósito en garantía', help: 'Lo que se cobra al apartar la terraza y se devuelve (total o en parte) si no hay daños.' },
+  terrace_deposit_return: { label: 'Terraza — monto que se devuelve', help: 'Cuánto del depósito se regresa al vecino tras revisar que todo quedó bien.' },
+  terrace_reservation_fee: { label: 'Terraza — cuota de uso', help: 'Costo fijo por usar la terraza (no se devuelve). Aún no hay módulo de reservas activo.' },
+  ai_enabled: { label: 'Asistente de IA activado', help: 'Enciende o apaga el asistente que responde dudas del reglamento.' },
+  ai_daily_neuron_limit: { label: 'Límite diario del asistente (Neurons)', help: 'Tope de uso para no salir del plan gratuito de Cloudflare. Al 95% se pausa solo.' },
+};
+
 function GeneralTab() {
   const qc = useQueryClient();
   const { data, isLoading, error } = useQuery({
@@ -566,8 +596,11 @@ function GeneralTab() {
 
   const updateMut = useMutation({
     mutationFn: ({ key, value }: { key: string; value: any }) => apiClient.updateSetting(key, value),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['system-settings'] }),
-    onError: (e: Error) => alert('Error: ' + e.message),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['system-settings'] });
+      toast.success('Ajuste guardado');
+    },
+    onError: (e: Error) => toast.error('No se pudo guardar el ajuste', { description: e.message }),
   });
 
   const settings = data?.data || [];
@@ -584,8 +617,8 @@ function GeneralTab() {
     <div className="space-y-6">
       {Object.entries(grouped).map(([category, items]) => (
         <div key={category} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 capitalize">
-            {category}
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            {CATEGORY_LABELS[category] || category}
           </h3>
           <div className="space-y-4">
             {items.map((s) => (
@@ -651,18 +684,25 @@ function SettingRow({ setting, onSave, pending }: { setting: SystemSetting; onSa
     );
   }
 
+  const meta = SETTING_LABELS[setting.key];
+  const label = meta?.label || setting.key;
+  const helpText = meta?.help;
+
   return (
     <div className="border-b border-gray-100 dark:border-gray-700 pb-4 last:border-0">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <code className="text-sm font-mono text-gray-800 dark:text-gray-200">{setting.key}</code>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</span>
+            {helpText && <Help text={helpText} size="sm" />}
             {!setting.is_editable && (
               <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded">solo lectura</span>
             )}
           </div>
-          {setting.description && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{setting.description}</p>
+          {(setting.description || !meta) && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {setting.description || setting.key}
+            </p>
           )}
           <div className="mt-2">{input}</div>
         </div>
