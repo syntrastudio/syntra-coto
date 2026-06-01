@@ -614,6 +614,29 @@ export function terraceDepositReturnedHTML(args: { full_name: string; event_date
 }
 
 // ============================================================================
+// BOLETÍN OFICIAL
+// ============================================================================
+
+/** Comunicado oficial de la mesa directiva. El cuerpo viene en texto plano. */
+export function bulletinHTML(args: { subject: string; body: string; signature?: string; contact_phone?: string }): string {
+  // Convierte saltos de línea en párrafos/br para conservar el formato del escritor
+  const bodyHtml = escapeHtml(args.body)
+    .split(/\n{2,}/)
+    .map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.7;color:#374151;">${p.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+  const content = `
+    ${bodyHtml}
+    ${args.signature ? `<p style="margin:24px 0 0;font-size:14px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:16px;">${escapeHtml(args.signature)}</p>` : ''}
+  `;
+  return emailLayout({
+    title: args.subject,
+    preheader: args.body.slice(0, 110),
+    content,
+    contactPhone: args.contact_phone,
+  });
+}
+
+// ============================================================================
 // HELPERS
 // ============================================================================
 

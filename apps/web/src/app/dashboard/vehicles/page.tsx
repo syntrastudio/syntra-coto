@@ -7,6 +7,7 @@ import { Car, Search } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
+import { Combobox } from '@/components/Combobox';
 import type { Vehicle, VehicleFilters, CreateVehicleInput, UpdateVehicleInput, Property } from '@/types';
 
 export default function VehiclesPage() {
@@ -43,6 +44,24 @@ export default function VehiclesPage() {
       return Array.isArray(response.data) ? response.data : ((response.data as any)?.data || []);
     },
   });
+
+  // Catálogo de marcas (según tipo) y modelos (según marca elegida)
+  const makeType = formData.vehicle_type === 'motocicleta' ? 'motorcycle' : 'car';
+  const { data: makesData, isLoading: makesLoading } = useQuery({
+    queryKey: ['vehicle-makes', makeType],
+    queryFn: () => apiClient.getVehicleMakes(makeType),
+    enabled: isModalOpen,
+    staleTime: 1000 * 60 * 60,
+  });
+  const makes: string[] = makesData?.data || [];
+
+  const { data: modelsData, isLoading: modelsLoading } = useQuery({
+    queryKey: ['vehicle-models', formData.brand],
+    queryFn: () => apiClient.getVehicleModels(formData.brand),
+    enabled: isModalOpen && !!formData.brand && makes.includes(formData.brand),
+    staleTime: 1000 * 60 * 60,
+  });
+  const models: string[] = modelsData?.data || [];
 
   // Crear vehículo
   const createMutation = useMutation({
@@ -101,6 +120,10 @@ export default function VehiclesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.property_id) { toast.error('Elige la casa'); return; }
+    if (!formData.brand?.trim()) { toast.error('Falta la marca'); return; }
+    if (!formData.model?.trim()) { toast.error('Falta el modelo'); return; }
+    if (!formData.license_plate?.trim()) { toast.error('Faltan las placas'); return; }
     if (editingVehicle) {
       updateMutation.mutate({
         id: editingVehicle.id,
@@ -322,22 +345,24 @@ export default function VehiclesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Marca *</label>
-                <input
-                  type="text"
-                  required
+                <Combobox
                   value={formData.brand}
-                  onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  onChange={(v) => setFormData({ ...formData, brand: v, model: '' })}
+                  options={makes}
+                  loading={makesLoading}
+                  placeholder="Escribe o elige la marca…"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modelo *</label>
-                <input
-                  type="text"
-                  required
+                <Combobox
                   value={formData.model}
-                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  onChange={(v) => setFormData({ ...formData, model: v })}
+                  options={models}
+                  loading={modelsLoading}
+                  disabled={!formData.brand}
+                  placeholder={formData.brand ? 'Escribe o elige el modelo…' : 'Primero elige la marca'}
+                  emptyHint="No encontramos ese modelo. Puedes escribirlo tal cual."
                 />
               </div>
               <div>

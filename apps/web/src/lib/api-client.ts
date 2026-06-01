@@ -378,6 +378,14 @@ class ApiClient {
     return this.request<ApiResponse<Vehicle[]>>(`/api/properties/${propertyId}/vehicles`);
   }
 
+  // Catálogo de marcas/modelos (API pública con caché en el worker)
+  async getVehicleMakes(type: 'car' | 'motorcycle' = 'car'): Promise<ApiResponse<string[]>> {
+    return this.request<ApiResponse<string[]>>(`/api/vehicles/makes?type=${type}`);
+  }
+  async getVehicleModels(make: string): Promise<ApiResponse<string[]>> {
+    return this.request<ApiResponse<string[]>>(`/api/vehicles/models/${encodeURIComponent(make)}`);
+  }
+
   async createVehicle(data: CreateVehicleInput): Promise<ApiResponse<Vehicle>> {
     return this.request<ApiResponse<Vehicle>>('/api/vehicles', {
       method: 'POST',
@@ -592,6 +600,20 @@ class ApiClient {
   }
   async returnTerraceDeposit(id: string, data: { returned_amount: number; method?: string; admin_notes?: string }): Promise<ApiResponse<any>> {
     return this.request(`/api/terrace/${id}/return-deposit`, { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  // ----- Boletín oficial -----
+  async getBulletinRecipients(): Promise<ApiResponse<Array<{ id: string; full_name: string; email: string; house_number?: string; street?: string }>>> {
+    return this.request('/api/bulletins/recipients');
+  }
+  async getBulletins(): Promise<ApiResponse<any[]>> {
+    return this.request('/api/bulletins');
+  }
+  async improveBulletin(text: string): Promise<ApiResponse<{ improved: string }>> {
+    return this.request('/api/bulletins/improve', { method: 'POST', body: JSON.stringify({ text }) });
+  }
+  async sendBulletin(data: { subject: string; body: string; audience: 'all' | 'selected'; resident_ids?: string[]; signature?: string }): Promise<ApiResponse<{ id: string; folio: string; sent: number; failed: number; total: number }>> {
+    return this.request('/api/bulletins', { method: 'POST', body: JSON.stringify(data) });
   }
 
   async getAssistantHistory(): Promise<ApiResponse<any[]>> {
