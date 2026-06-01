@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { Megaphone, Sparkles, Send, Users, Search, Check, Undo2, History } from 'lucide-react';
+import { whatsappLink } from '@/lib/whatsapp';
+import { Megaphone, Sparkles, Send, Users, Search, Check, Undo2, History, MessageCircle, AlertTriangle } from 'lucide-react';
 
 export default function BoletinPage() {
   const qc = useQueryClient();
@@ -52,6 +53,8 @@ export default function BoletinPage() {
   });
 
   const recipientCount = audience === 'all' ? recipients.length : selected.size;
+  const waMessage = `*${subject || 'Aviso de la administración'}*\n\n${body}${signature ? `\n\n${signature}` : ''}`;
+  const selectedWithPhone = recipients.filter((r) => selected.has(r.id) && (r as any).phone && whatsappLink((r as any).phone));
 
   const handleSend = async () => {
     if (!subject.trim()) { toast.error('Escribe un asunto'); return; }
@@ -145,6 +148,32 @@ export default function BoletinPage() {
             </div>
           )}
         </div>
+
+        {/* Aviso de límite de correos */}
+        {recipientCount > 90 && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <span>Vas a enviar a {recipientCount} correos. El plan gratuito permite ~100 por día; si te pasas, algunos podrían no salir hoy. Considera mandarlo a un grupo a la vez, o usa el envío por WhatsApp de abajo.</span>
+          </div>
+        )}
+
+        {/* Enviar por WhatsApp (selección con teléfono) */}
+        {audience === 'selected' && selectedWithPhone.length > 0 && (
+          <div className="border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+            <p className="text-sm font-medium text-green-800 dark:text-green-300 flex items-center gap-1.5 mb-2">
+              <MessageCircle className="h-4 w-4" /> También por WhatsApp (gratis)
+            </p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Abre el chat con el mensaje ya escrito; solo das “enviar”. Útil para avisar a alguien en concreto.</p>
+            <div className="flex flex-wrap gap-2">
+              {selectedWithPhone.map((r) => (
+                <a key={r.id} href={whatsappLink((r as any).phone, waMessage)!} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white dark:bg-gray-700 border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 text-xs hover:bg-green-100 dark:hover:bg-green-900/40">
+                  <MessageCircle className="h-3 w-3" /> {r.full_name?.split(' ')[0]}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700 pt-4">
           <p className="text-xs text-gray-500 dark:text-gray-400">Se enviará a <strong>{recipientCount}</strong> {recipientCount === 1 ? 'vecino' : 'vecinos'} con correo.</p>

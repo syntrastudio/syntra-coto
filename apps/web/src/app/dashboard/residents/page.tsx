@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import { Search, Plus, Edit, Trash2, X, Mail, Phone, Calendar, User, Users } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, X, Mail, Phone, Calendar, User, Users, MessageCircle } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
+import { whatsappLink } from '@/lib/whatsapp';
 import type { Resident, CreateResidentInput, UpdateResidentInput } from '@/types';
 
 export default function ResidentsPage() {
@@ -286,9 +287,22 @@ export default function ResidentsPage() {
                         <Mail className="h-4 w-4 mr-2 text-gray-400" />
                         {resident.email}
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center mt-1">
-                        <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                        {resident.phone}
+                      <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center mt-1 gap-2">
+                        <span className="flex items-center">
+                          <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                          {resident.phone || '—'}
+                        </span>
+                        {resident.phone && whatsappLink(resident.phone) && (
+                          <a
+                            href={whatsappLink(resident.phone, `Hola ${resident.full_name?.split(' ')[0] || ''}, le escribimos de la administración de Paseo Coto Tonalá.`)!}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Escribir por WhatsApp"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-200 dark:hover:bg-green-900/50"
+                          >
+                            <MessageCircle className="h-3 w-3" /> WhatsApp
+                          </a>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

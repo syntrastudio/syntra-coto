@@ -616,6 +616,17 @@ class ApiClient {
     return this.request('/api/bulletins', { method: 'POST', body: JSON.stringify(data) });
   }
 
+  // ----- Solicitudes de acceso (interesados) -----
+  async submitAccessRequest(data: { full_name: string; email: string; phone?: string; house_label?: string; message?: string }): Promise<ApiResponse<any>> {
+    return this.request('/api/public/access-request', { method: 'POST', body: JSON.stringify(data) });
+  }
+  async getAccessRequests(): Promise<ApiResponse<any[]>> {
+    return this.request('/api/public/access-requests');
+  }
+  async updateAccessRequestStatus(id: string, status: 'pendiente' | 'contactado' | 'descartado'): Promise<ApiResponse<any>> {
+    return this.request(`/api/public/access-requests/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+  }
+
   async getAssistantHistory(): Promise<ApiResponse<any[]>> {
     return this.request('/api/assistant/history');
   }

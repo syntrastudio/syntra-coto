@@ -39,7 +39,7 @@ bulletins.get('/recipients', async (c) => {
   try {
     const rows = await c.env.DB
       .prepare(
-        `SELECT r.id, r.full_name, r.email,
+        `SELECT r.id, r.full_name, r.email, r.phone,
                 p.house_number, p.street
          FROM residents r
          LEFT JOIN properties p ON (p.current_resident_id = r.id OR p.owner_id = r.id) AND p.deleted_at IS NULL

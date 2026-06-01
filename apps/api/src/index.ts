@@ -24,6 +24,7 @@ import assistant from './routes/assistant';
 import cameras from './routes/cameras';
 import terrace from './routes/terrace';
 import bulletins from './routes/bulletins';
+import publicRoutes from './routes/public';
 
 import { generateMonthlyFees } from './services/fees.service';
 import { applyLateFees, recalculateDelinquency } from './services/delinquency.service';
@@ -79,6 +80,7 @@ app.route('/api/assistant', assistant);
 app.route('/api/cameras', cameras);
 app.route('/api/terrace', terrace);
 app.route('/api/bulletins', bulletins);
+app.route('/api/public', publicRoutes);
 
 // Manejo de rutas no encontradas
 app.notFound((c) => {
