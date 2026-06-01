@@ -623,8 +623,19 @@ class ApiClient {
   async getAccessRequests(): Promise<ApiResponse<any[]>> {
     return this.request('/api/public/access-requests');
   }
-  async updateAccessRequestStatus(id: string, status: 'pendiente' | 'contactado' | 'descartado'): Promise<ApiResponse<any>> {
+  async updateAccessRequestStatus(id: string, status: 'pendiente' | 'en_revision' | 'contactado' | 'descartado' | 'dado_de_alta'): Promise<ApiResponse<any>> {
     return this.request(`/api/public/access-requests/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+  }
+  // Aprobar interesado → crear vecino. Devuelve el body crudo para manejar 409 (duplicados/advertencias).
+  async approveAccessRequest(id: string, data: { full_name: string; email: string; phone: string; type: 'propietario' | 'inquilino'; property_id?: string; override?: boolean }): Promise<{ ok: boolean; status: number; body: any }> {
+    const token = this.getToken();
+    const r = await fetch(`${this.baseUrl}/api/public/access-requests/${id}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(data),
+    });
+    const body = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, body };
   }
 
   async getAssistantHistory(): Promise<ApiResponse<any[]>> {
