@@ -12,7 +12,6 @@ import {
   Trash2,
   MapPin,
   Wifi,
-  WifiOff,
   Smartphone,
   Info,
 } from 'lucide-react';
