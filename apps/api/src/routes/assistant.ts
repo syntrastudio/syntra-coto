@@ -206,9 +206,10 @@ CÓMO ESTÁ ORGANIZADA LA APP (menú de la izquierda):
 - Pagos: registrar pagos y ver el historial. Cada pago genera un recibo por correo.
 - Caja de la mesa: el efectivo que tiene cada miembro de la mesa; depósitos al banco y transferencias.
 - Solicitudes: reportes/quejas que abren los vecinos (tickets).
+- Terraza: solicitudes de apartado del área común. Los vecinos al corriente piden una fecha desde su portal; la mesa aprueba, registra el pago (efectivo o transferencia) y, tras el evento, registra la devolución del depósito. Todo el flujo manda correos al vecino.
 - Reglamento: el PDF del reglamento y un bot para preguntar sobre él.
 - ¿Cómo se usa?: guías paso a paso.
-- Configuración: ajustes (cuota mensual, recargos, usuarios, etc.). Solo admins.
+- Configuración: ajustes (cuota mensual, recargos, montos de terraza, usuarios, etc.). Solo admins.
 
 TAREAS COMUNES:
 - Registrar un pago: Pagos → "Registrar pago" → elegir "A la casa" (lo más fácil) → casa, monto, método → Registrar. El sobrante queda como saldo a favor.

@@ -17,6 +17,7 @@ export default function VehiclesPage() {
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [formData, setFormData] = useState<CreateVehicleInput>({
     property_id: '',
+    vehicle_type: 'automovil',
     brand: '',
     model: '',
     year: new Date().getFullYear(),
@@ -29,7 +30,7 @@ export default function VehiclesPage() {
   const { data: vehiclesData, isLoading } = useQuery({
     queryKey: ['vehicles', filters],
     queryFn: async () => {
-      const response = await apiClient.getVehicles(1, 1000, filters);
+      const response = await apiClient.getVehicles(1, 100, filters);
       return Array.isArray(response.data) ? response.data : ((response.data as any)?.data || []);
     },
   });
@@ -38,7 +39,7 @@ export default function VehiclesPage() {
   const { data: propertiesData } = useQuery({
     queryKey: ['properties', 'all'],
     queryFn: async () => {
-      const response = await apiClient.getProperties(1, 1000);
+      const response = await apiClient.getProperties(1, 100);
       return Array.isArray(response.data) ? response.data : ((response.data as any)?.data || []);
     },
   });
@@ -92,6 +93,7 @@ export default function VehiclesPage() {
       model: '',
       year: new Date().getFullYear(),
       license_plate: '',
+      vehicle_type: 'automovil',
       color: '',
       status: 'activo',
     });
@@ -113,6 +115,7 @@ export default function VehiclesPage() {
     setEditingVehicle(vehicle);
     setFormData({
       property_id: vehicle.property_id,
+      vehicle_type: vehicle.vehicle_type || 'automovil',
       brand: vehicle.brand,
       model: vehicle.model,
       year: vehicle.year,
@@ -222,6 +225,7 @@ export default function VehiclesPage() {
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Placas</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Marca</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Modelo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Año</th>
@@ -235,6 +239,9 @@ export default function VehiclesPage() {
               {vehicles.map((vehicle: Vehicle) => (
                 <tr key={vehicle.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100">{vehicle.license_plate}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-gray-100">
+                    {vehicle.vehicle_type === 'motocicleta' ? '🏍️ Moto' : vehicle.vehicle_type === 'otro' ? 'Otro' : '🚗 Auto'}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-gray-100">{vehicle.brand}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-gray-100">{vehicle.model}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-gray-100">{vehicle.year}</td>
@@ -298,6 +305,19 @@ export default function VehiclesPage() {
                       {property.street} {property.house_number}
                     </option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de vehículo *</label>
+                <select
+                  required
+                  value={formData.vehicle_type}
+                  onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value as any })}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="automovil">Automóvil</option>
+                  <option value="motocicleta">Motocicleta</option>
+                  <option value="otro">Otro</option>
                 </select>
               </div>
               <div>

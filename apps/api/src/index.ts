@@ -22,6 +22,7 @@ import mesa from './routes/mesa';
 import tickets from './routes/tickets';
 import assistant from './routes/assistant';
 import cameras from './routes/cameras';
+import terrace from './routes/terrace';
 
 import { generateMonthlyFees } from './services/fees.service';
 import { applyLateFees, recalculateDelinquency } from './services/delinquency.service';
@@ -75,6 +76,7 @@ app.route('/api/mesa', mesa);
 app.route('/api/tickets', tickets);
 app.route('/api/assistant', assistant);
 app.route('/api/cameras', cameras);
+app.route('/api/terrace', terrace);
 
 // Manejo de rutas no encontradas
 app.notFound((c) => {

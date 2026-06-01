@@ -564,6 +564,36 @@ class ApiClient {
     return this.request('/api/assistant/help', { method: 'POST', body: JSON.stringify({ question }) });
   }
 
+  // ----- Terraza (apartado de área común) -----
+  async getTerraceInfo(): Promise<ApiResponse<{ reservation_fee: number; deposit_amount: number; deposit_return: number }>> {
+    return this.request('/api/terrace/info');
+  }
+  async getTerraceTakenDates(): Promise<ApiResponse<string[]>> {
+    return this.request('/api/terrace/taken-dates');
+  }
+  async getTerraceReservations(status?: string): Promise<ApiResponse<any[]>> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.request(`/api/terrace${q}`);
+  }
+  async createTerraceReservation(data: { property_id?: string; event_date: string; event_type?: string; guests_estimate?: number; resident_notes?: string }): Promise<ApiResponse<any>> {
+    return this.request('/api/terrace', { method: 'POST', body: JSON.stringify(data) });
+  }
+  async cancelTerraceReservation(id: string): Promise<ApiResponse<any>> {
+    return this.request(`/api/terrace/${id}/cancel`, { method: 'POST', body: JSON.stringify({}) });
+  }
+  async approveTerrace(id: string, data: { reservation_fee?: number; deposit_amount?: number; payment_instructions?: string; admin_notes?: string }): Promise<ApiResponse<any>> {
+    return this.request(`/api/terrace/${id}/approve`, { method: 'POST', body: JSON.stringify(data) });
+  }
+  async rejectTerrace(id: string, reason?: string): Promise<ApiResponse<any>> {
+    return this.request(`/api/terrace/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
+  }
+  async markTerracePaid(id: string, data: { payment_method: string; payment_reference?: string; received_by_user_id?: string }): Promise<ApiResponse<any>> {
+    return this.request(`/api/terrace/${id}/mark-paid`, { method: 'POST', body: JSON.stringify(data) });
+  }
+  async returnTerraceDeposit(id: string, data: { returned_amount: number; method?: string; admin_notes?: string }): Promise<ApiResponse<any>> {
+    return this.request(`/api/terrace/${id}/return-deposit`, { method: 'POST', body: JSON.stringify(data) });
+  }
+
   async getAssistantHistory(): Promise<ApiResponse<any[]>> {
     return this.request('/api/assistant/history');
   }

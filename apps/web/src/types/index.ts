@@ -122,9 +122,12 @@ export interface Payment {
 }
 
 // Tipos de Vehículo
+export type VehicleType = 'automovil' | 'motocicleta' | 'otro';
+
 export interface Vehicle {
   id: string;
   property_id: string;
+  vehicle_type: VehicleType;
   brand: string;
   model: string;
   year: number;
@@ -273,6 +276,7 @@ export interface GenerateFeesInput {
 
 export interface CreateVehicleInput {
   property_id: string;
+  vehicle_type?: VehicleType;
   brand: string;
   model: string;
   year: number;
@@ -283,6 +287,7 @@ export interface CreateVehicleInput {
 
 export interface UpdateVehicleInput {
   id: string;
+  vehicle_type?: VehicleType;
   brand?: string;
   model?: string;
   year?: number;

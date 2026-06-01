@@ -71,6 +71,7 @@ export async function listVehicles(
   const vehiclesWithProperty: VehicleWithProperty[] = (vehicles.results || []).map((row) => ({
     id: row.id,
     property_id: row.property_id,
+    vehicle_type: row.vehicle_type,
     brand: row.brand,
     model: row.model,
     year: row.year,
@@ -124,6 +125,7 @@ export async function getVehicleById(db: D1Database, vehicleId: string): Promise
   return {
     id: vehicle.id,
     property_id: vehicle.property_id,
+    vehicle_type: vehicle.vehicle_type,
     brand: vehicle.brand,
     model: vehicle.model,
     year: vehicle.year,
@@ -189,12 +191,13 @@ export async function createVehicle(db: D1Database, data: VehicleCreateInput): P
   await db
     .prepare(
       `INSERT INTO vehicles (
-        id, property_id, brand, model, year, license_plate, color, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        id, property_id, vehicle_type, brand, model, year, license_plate, color, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       vehicleId,
       data.property_id,
+      data.vehicle_type || 'automovil',
       data.brand,
       data.model,
       data.year,

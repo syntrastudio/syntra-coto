@@ -199,6 +199,7 @@ export const paymentListQuerySchema = z.object({
 
 export const vehicleCreateSchema = z.object({
   property_id: z.string().min(1, 'El ID de propiedad es requerido'),
+  vehicle_type: z.enum(['automovil', 'motocicleta', 'otro']).optional().default('automovil'),
   brand: z.string().min(1, 'La marca es requerida'),
   model: z.string().min(1, 'El modelo es requerido'),
   year: z
@@ -212,6 +213,7 @@ export const vehicleCreateSchema = z.object({
 });
 
 export const vehicleUpdateSchema = z.object({
+  vehicle_type: z.enum(['automovil', 'motocicleta', 'otro']).optional(),
   brand: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
   year: z

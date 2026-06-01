@@ -12,6 +12,7 @@ import {
   Wallet,
   KeyRound,
   PlayCircle,
+  CalendarDays,
 } from 'lucide-react';
 
 interface GuideItem {
@@ -80,6 +81,18 @@ const GUIDE: GuideItem[] = [
       'Se liquidan automáticamente las 12 cuotas del año.',
     ],
     link: { href: '/dashboard/payments', label: 'Ir a Pagos' },
+  },
+  {
+    icon: CalendarDays,
+    q: '¿Cómo funciona el apartado de la terraza?',
+    steps: [
+      'El vecino (al corriente de sus pagos) entra a su portal → pestaña "Terraza" → elige una fecha y la solicita.',
+      'A ti te llega un correo y la solicitud aparece en "Terraza" del menú.',
+      'Tócala y elige "Aprobar": confirma el monto (cuota + depósito) y, si quieres, escribe cómo pagar. Al vecino le llega el correo con las instrucciones.',
+      'Cuando el vecino pague (efectivo o transferencia), abre la solicitud y toca "Registrar pago". La reservación queda confirmada y se le avisa por correo.',
+      'Después del evento, toca "Devolver depósito" e indica cuánto devuelves (menos si hubo daños). Se le notifica al vecino.',
+    ],
+    link: { href: '/dashboard/terraza', label: 'Ir a Terraza' },
   },
   {
     icon: Wallet,

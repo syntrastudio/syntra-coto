@@ -481,6 +481,139 @@ export function suspensionNoticeHTML(args: {
 }
 
 // ============================================================================
+// PLANTILLAS TERRAZA (apartado de área común)
+// ============================================================================
+
+/** Formatea "2026-08-15" → "sábado 15 de agosto de 2026" (sin corrimiento de zona). */
+export function formatEventDate(ymd: string): string {
+  const parts = String(ymd).split('-').map(Number);
+  const d = new Date(parts[0] || 2000, (parts[1] || 1) - 1, parts[2] || 1, 12);
+  return d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function moneyRow(label: string, amount: number, highlight = false): string {
+  return `<tr>
+    <td style="padding:8px 0;font-size:14px;color:#6b7280;border-bottom:1px solid #e5e7eb;">${escapeHtml(label)}</td>
+    <td style="padding:8px 0;font-size:${highlight ? '18px' : '15px'};color:${highlight ? '#1e40af' : '#111827'};text-align:right;border-bottom:1px solid #e5e7eb;font-weight:${highlight ? '700' : '500'};">$${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+  </tr>`;
+}
+
+/** 1) Para el residente: recibimos tu solicitud. */
+export function terraceRequestReceivedHTML(args: { full_name: string; event_date: string; folio: string; contact_phone?: string }): string {
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola <strong>${escapeHtml(args.full_name)}</strong>,</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+      Recibimos tu solicitud para apartar la terraza el <strong>${escapeHtml(formatEventDate(args.event_date))}</strong>.
+      La mesa directiva la revisará y te avisaremos en cuanto sea aprobada, junto con las instrucciones de pago.
+    </p>
+    <div style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px;margin:20px 0;font-size:14px;color:#1e40af;">
+      Folio de tu solicitud: <strong>${escapeHtml(args.folio)}</strong>
+    </div>
+    <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">Tu fecha aún no está garantizada hasta que se apruebe y se confirme el pago.</p>
+  `;
+  return emailLayout({ title: 'Solicitud de terraza recibida', preheader: `Apartado para el ${formatEventDate(args.event_date)}`, content, contactPhone: args.contact_phone });
+}
+
+/** 2) Para los administradores: nueva solicitud por revisar. */
+export function terraceAdminNewRequestHTML(args: { property_address: string; requester_name: string; event_date: string; folio: string; app_url?: string; contact_phone?: string }): string {
+  const content = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+      Hay una nueva solicitud de apartado de la terraza pendiente de revisión.
+    </p>
+    <table cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:16px 0;">
+      <tr><td style="padding:6px 0;font-size:14px;color:#6b7280;">Casa:</td><td style="padding:6px 0;font-size:14px;text-align:right;font-weight:600;">${escapeHtml(args.property_address)}</td></tr>
+      <tr><td style="padding:6px 0;font-size:14px;color:#6b7280;">Solicita:</td><td style="padding:6px 0;font-size:14px;text-align:right;">${escapeHtml(args.requester_name)}</td></tr>
+      <tr><td style="padding:6px 0;font-size:14px;color:#6b7280;">Fecha del evento:</td><td style="padding:6px 0;font-size:14px;text-align:right;font-weight:600;">${escapeHtml(formatEventDate(args.event_date))}</td></tr>
+      <tr><td style="padding:6px 0;font-size:14px;color:#6b7280;">Folio:</td><td style="padding:6px 0;font-size:14px;text-align:right;">${escapeHtml(args.folio)}</td></tr>
+    </table>
+  `;
+  return emailLayout({
+    title: 'Nueva solicitud de terraza',
+    preheader: `${args.property_address} — ${formatEventDate(args.event_date)}`,
+    content,
+    cta: args.app_url ? { label: 'Revisar en el panel', href: args.app_url } : undefined,
+    contactPhone: args.contact_phone,
+  });
+}
+
+/** 3) Para el residente: aprobada, con instrucciones de pago. */
+export function terraceApprovedHTML(args: {
+  full_name: string; event_date: string; folio: string;
+  reservation_fee: number; deposit_amount: number;
+  payment_instructions?: string; contact_phone?: string;
+}): string {
+  const total = args.reservation_fee + args.deposit_amount;
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola <strong>${escapeHtml(args.full_name)}</strong>,</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+      ¡Buenas noticias! Tu solicitud para apartar la terraza el <strong>${escapeHtml(formatEventDate(args.event_date))}</strong> fue <strong style="color:#16a34a;">aprobada</strong>.
+      Para confirmar tu reservación, realiza el siguiente pago:
+    </p>
+    <table cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:20px 0;">
+      ${args.reservation_fee > 0 ? moneyRow('Cuota de uso', args.reservation_fee) : ''}
+      ${args.deposit_amount > 0 ? moneyRow('Depósito en garantía (reembolsable)', args.deposit_amount) : ''}
+      ${moneyRow('Total a pagar', total, true)}
+    </table>
+    <div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;font-size:14px;color:#374151;line-height:1.6;">
+      <strong>¿Cómo pagar?</strong><br>${args.payment_instructions ? escapeHtml(args.payment_instructions) : 'Comunícate con la mesa directiva para pagar en efectivo o por transferencia.'}
+    </div>
+    <div style="background-color:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px;margin:16px 0;font-size:13px;color:#92400e;">
+      Tu fecha se confirma cuando la mesa registre tu pago. El depósito se te devuelve después del evento si la terraza queda en buen estado.
+    </div>
+    <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">Folio: <strong>${escapeHtml(args.folio)}</strong></p>
+  `;
+  return emailLayout({ title: 'Tu apartado fue aprobado', preheader: `Aprobado para el ${formatEventDate(args.event_date)}`, content, contactPhone: args.contact_phone });
+}
+
+/** 4) Para el residente: rechazada. */
+export function terraceRejectedHTML(args: { full_name: string; event_date: string; reason?: string; contact_phone?: string }): string {
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola <strong>${escapeHtml(args.full_name)}</strong>,</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+      Lamentamos informarte que tu solicitud para apartar la terraza el <strong>${escapeHtml(formatEventDate(args.event_date))}</strong> no pudo ser aprobada.
+    </p>
+    ${args.reason ? `<div style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px;margin:16px 0;font-size:14px;color:#991b1b;"><strong>Motivo:</strong> ${escapeHtml(args.reason)}</div>` : ''}
+    <p style="margin:16px 0 0;font-size:14px;color:#374151;line-height:1.6;">
+      Si tienes dudas o quieres proponer otra fecha, comunícate con la mesa directiva.
+    </p>
+  `;
+  return emailLayout({ title: 'Solicitud de terraza no aprobada', preheader: 'Tu solicitud no pudo aprobarse', content, contactPhone: args.contact_phone });
+}
+
+/** 5) Para el residente: confirmada (pago recibido). */
+export function terraceConfirmedHTML(args: { full_name: string; event_date: string; folio: string; deposit_amount: number; contact_phone?: string }): string {
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola <strong>${escapeHtml(args.full_name)}</strong>,</p>
+    <div style="background-color:#16a34a;color:#ffffff;border-radius:8px;padding:20px;margin:24px 0;text-align:center;">
+      <p style="margin:0;font-size:14px;letter-spacing:1px;text-transform:uppercase;opacity:0.9;">Reservación confirmada</p>
+      <p style="margin:8px 0 0;font-size:20px;font-weight:700;">${escapeHtml(formatEventDate(args.event_date))}</p>
+    </div>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+      Recibimos tu pago y la terraza queda apartada a tu nombre para esa fecha. ¡Que disfrutes tu evento!
+    </p>
+    ${args.deposit_amount > 0 ? `<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">Recuerda que tu depósito de <strong>$${args.deposit_amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong> se te devolverá después del evento, siempre que la terraza quede en buen estado.</p>` : ''}
+    <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">Folio: <strong>${escapeHtml(args.folio)}</strong></p>
+  `;
+  return emailLayout({ title: 'Terraza apartada', preheader: `Confirmada para el ${formatEventDate(args.event_date)}`, content, contactPhone: args.contact_phone });
+}
+
+/** 6) Para el residente: depósito devuelto. */
+export function terraceDepositReturnedHTML(args: { full_name: string; event_date: string; returned_amount: number; method?: string; contact_phone?: string }): string {
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola <strong>${escapeHtml(args.full_name)}</strong>,</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+      Te confirmamos la devolución de tu depósito por el uso de la terraza del <strong>${escapeHtml(formatEventDate(args.event_date))}</strong>.
+    </p>
+    <table cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:20px 0;">
+      ${moneyRow('Monto devuelto', args.returned_amount, true)}
+      ${args.method ? `<tr><td style="padding:8px 0;font-size:14px;color:#6b7280;">Método:</td><td style="padding:8px 0;font-size:14px;text-align:right;">${escapeHtml(args.method)}</td></tr>` : ''}
+    </table>
+    <p style="margin:16px 0 0;font-size:14px;color:#374151;line-height:1.6;">Gracias por cuidar las áreas comunes del fraccionamiento.</p>
+  `;
+  return emailLayout({ title: 'Depósito devuelto', preheader: `Devolución de $${args.returned_amount.toLocaleString('es-MX')}`, content, contactPhone: args.contact_phone });
+}
+
+// ============================================================================
 // HELPERS
 // ============================================================================
 
