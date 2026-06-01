@@ -52,6 +52,7 @@ export interface Property {
   street: string;
   status: 'ocupada' | 'desocupada' | 'en_renta' | 'en_venta';
   owner_id: string | null;
+  co_owner_id: string | null;
   current_resident_id: string | null;
   gate_control_1: string | null;
   gate_control_2: string | null;
@@ -68,6 +69,7 @@ export interface PropertyCreateInput {
   street: string;
   status?: PropertyStatus;
   owner_id?: string;
+  co_owner_id?: string;
   current_resident_id?: string;
   gate_control_1?: string;
   gate_control_2?: string;
@@ -79,6 +81,7 @@ export interface PropertyUpdateInput {
   street?: string;
   status?: PropertyStatus;
   owner_id?: string;
+  co_owner_id?: string;
   current_resident_id?: string;
   gate_control_1?: string;
   gate_control_2?: string;
@@ -327,6 +330,7 @@ export interface VehicleUpdateInput {
 // Tipo para resultados de consultas con joins
 export interface PropertyWithRelations extends Property {
   owner?: Pick<Resident, 'id' | 'full_name' | 'email' | 'phone'>;
+  co_owner?: Pick<Resident, 'id' | 'full_name' | 'email' | 'phone'>;
   current_resident?: Pick<Resident, 'id' | 'full_name' | 'email' | 'phone'>;
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -125,6 +125,16 @@ function ApproveModal({ request, onClose }: { request: any; onClose: () => void 
     },
   });
   const properties: any[] = propsData || [];
+
+  // Autodetecta la casa a partir de lo que escribió el interesado (ej. "San Gaspar 116")
+  useEffect(() => {
+    if (propertyId || !request.house_label || properties.length === 0) return;
+    const l = String(request.house_label).toLowerCase();
+    const numMatch = (p: any) => p.house_number && new RegExp(`\\b${String(p.house_number).toLowerCase()}\\b`).test(l);
+    const streetMatch = (p: any) => String(p.street || '').toLowerCase().split(/\s+/).some((w) => w.length > 3 && l.includes(w));
+    const best = properties.find((p) => numMatch(p) && streetMatch(p)) || properties.find((p) => numMatch(p));
+    if (best) setPropertyId(best.id);
+  }, [properties, request.house_label, propertyId]);
 
   const run = async (override: boolean) => {
     if (!fullName.trim() || !email.trim() || !phone.trim()) { toast.error('Completa nombre, correo y teléfono'); return; }

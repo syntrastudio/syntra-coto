@@ -49,6 +49,7 @@ export interface Property {
   block?: string;
   status: 'ocupada' | 'desocupada' | 'en_renta' | 'en_venta';
   owner_id?: string;
+  co_owner_id?: string;
   current_resident_id?: string;
   gate_control_1?: string;
   gate_control_2?: string;
@@ -62,6 +63,7 @@ export interface Property {
   updated_at: string;
   // Relaciones populadas
   owner?: Resident;
+  co_owner?: Resident;
   current_resident?: Resident;
 }
 
@@ -228,6 +230,7 @@ export interface CreatePropertyInput {
   street: string;
   status: Property['status'];
   owner_id?: string;
+  co_owner_id?: string;
   current_resident_id?: string;
   gate_control_1?: string;
   gate_control_2?: string;

@@ -67,6 +67,10 @@ export async function listProperties(
         r_current.full_name as current_resident_full_name,
         r_current.email as current_resident_email,
         r_current.phone as current_resident_phone,
+        r_coowner.id as co_owner_resident_id,
+        r_coowner.full_name as co_owner_full_name,
+        r_coowner.email as co_owner_email,
+        r_coowner.phone as co_owner_phone,
         COALESCE((SELECT SUM(balance) FROM monthly_fees mf
                   WHERE mf.property_id = p.id AND mf.deleted_at IS NULL
                     AND mf.status IN ('pending','partially_paid','overdue')), 0) AS total_owed,
@@ -76,6 +80,7 @@ export async function listProperties(
       FROM properties p
       LEFT JOIN residents r_owner ON p.owner_id = r_owner.id AND r_owner.deleted_at IS NULL
       LEFT JOIN residents r_current ON p.current_resident_id = r_current.id AND r_current.deleted_at IS NULL
+      LEFT JOIN residents r_coowner ON p.co_owner_id = r_coowner.id AND r_coowner.deleted_at IS NULL
       WHERE ${whereClause}
       ORDER BY p.${sortBy} ${sortOrder}
       LIMIT ? OFFSET ?`
@@ -90,6 +95,7 @@ export async function listProperties(
     street: row.street,
     status: row.status,
     owner_id: row.owner_id,
+    co_owner_id: row.co_owner_id,
     current_resident_id: row.current_resident_id,
     gate_control_1: row.gate_control_1,
     gate_control_2: row.gate_control_2,
@@ -118,6 +124,14 @@ export async function listProperties(
           phone: row.current_resident_phone,
         }
       : undefined,
+    co_owner: row.co_owner_resident_id
+      ? {
+          id: row.co_owner_resident_id,
+          full_name: row.co_owner_full_name,
+          email: row.co_owner_email,
+          phone: row.co_owner_phone,
+        }
+      : undefined,
   }));
 
   return { properties: transformedProperties, total };
@@ -141,10 +155,15 @@ export async function getPropertyById(
         r_current.id as current_resident_resident_id,
         r_current.full_name as current_resident_full_name,
         r_current.email as current_resident_email,
-        r_current.phone as current_resident_phone
+        r_current.phone as current_resident_phone,
+        r_coowner.id as co_owner_resident_id,
+        r_coowner.full_name as co_owner_full_name,
+        r_coowner.email as co_owner_email,
+        r_coowner.phone as co_owner_phone
       FROM properties p
       LEFT JOIN residents r_owner ON p.owner_id = r_owner.id AND r_owner.deleted_at IS NULL
       LEFT JOIN residents r_current ON p.current_resident_id = r_current.id AND r_current.deleted_at IS NULL
+      LEFT JOIN residents r_coowner ON p.co_owner_id = r_coowner.id AND r_coowner.deleted_at IS NULL
       WHERE p.id = ? AND p.deleted_at IS NULL`
     )
     .bind(propertyId)
@@ -160,6 +179,7 @@ export async function getPropertyById(
     street: result.street,
     status: result.status,
     owner_id: result.owner_id,
+    co_owner_id: result.co_owner_id,
     current_resident_id: result.current_resident_id,
     gate_control_1: result.gate_control_1,
     gate_control_2: result.gate_control_2,
@@ -184,6 +204,14 @@ export async function getPropertyById(
           full_name: result.current_resident_full_name,
           email: result.current_resident_email,
           phone: result.current_resident_phone,
+        }
+      : undefined,
+    co_owner: result.co_owner_resident_id
+      ? {
+          id: result.co_owner_resident_id,
+          full_name: result.co_owner_full_name,
+          email: result.co_owner_email,
+          phone: result.co_owner_phone,
         }
       : undefined,
   };
@@ -232,6 +260,15 @@ export async function createProperty(
     }
   }
 
+  // Si se proporciona co_owner_id, verificar que exista
+  if (data.co_owner_id) {
+    const co = await db
+      .prepare('SELECT id FROM residents WHERE id = ? AND deleted_at IS NULL')
+      .bind(data.co_owner_id)
+      .first<{ id: string }>();
+    if (!co) throwNotFound('Copropietario');
+  }
+
   const propertyId = crypto.randomUUID();
   const now = Math.floor(Date.now() / 1000);
   
@@ -240,9 +277,9 @@ export async function createProperty(
   await db
     .prepare(
       `INSERT INTO properties (
-        id, house_number, street, status, owner_id, current_resident_id,
+        id, house_number, street, status, owner_id, co_owner_id, current_resident_id,
         gate_control_1, gate_control_2, gate_control_3, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       propertyId,
@@ -250,6 +287,7 @@ export async function createProperty(
       data.street,
       data.status || 'desocupada',
       data.owner_id || null,
+      data.co_owner_id || null,
       data.current_resident_id || null,
       data.gate_control_1 || null,
       data.gate_control_2 || null,
@@ -411,6 +449,15 @@ export async function updateProperty(
     }
   }
 
+  // Si se actualiza el copropietario, verificar que exista
+  if (data.co_owner_id) {
+    const co = await db
+      .prepare('SELECT id FROM residents WHERE id = ? AND deleted_at IS NULL')
+      .bind(data.co_owner_id)
+      .first<{ id: string }>();
+    if (!co) throwNotFound('Copropietario');
+  }
+
   const now = Math.floor(Date.now() / 1000);
   const updates: string[] = [];
   const values: any[] = [];
@@ -433,6 +480,11 @@ export async function updateProperty(
   if (data.owner_id !== undefined) {
     updates.push('owner_id = ?');
     values.push(data.owner_id);
+  }
+
+  if (data.co_owner_id !== undefined) {
+    updates.push('co_owner_id = ?');
+    values.push(data.co_owner_id);
   }
 
   if (data.current_resident_id !== undefined) {

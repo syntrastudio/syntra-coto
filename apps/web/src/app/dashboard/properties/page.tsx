@@ -90,6 +90,7 @@ export default function PropertiesPage() {
       street: formData.get('street') as string,
       status: formData.get('status') as Property['status'],
       owner_id: (formData.get('owner_id') as string) || null as any,
+      co_owner_id: (formData.get('co_owner_id') as string) || null as any,
       current_resident_id: (formData.get('current_resident_id') as string) || null as any,
       gate_control_1: formData.get('gate_control_1') as string || undefined,
       gate_control_2: formData.get('gate_control_2') as string || undefined,
@@ -253,6 +254,9 @@ export default function PropertiesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                       {(property as any).owner?.full_name || <span className="text-gray-400">—</span>}
+                      {(property as any).co_owner?.full_name && (
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">y {(property as any).co_owner.full_name} (copropietario)</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                       {(property as any).current_resident?.full_name || <span className="text-gray-400">—</span>}
@@ -401,6 +405,25 @@ export default function PropertiesPage() {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Copropietario <span className="text-gray-400 font-normal">(opcional)</span>
+                    </label>
+                    <select
+                      name="co_owner_id"
+                      defaultValue={(editingProperty as any)?.co_owner_id || ''}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">— Sin copropietario —</option>
+                      {residents.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.full_name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Segunda persona dueña de la casa (ej. cónyuge). También podrá ver la propiedad en su portal.</p>
                   </div>
 
                   <div>

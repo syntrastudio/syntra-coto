@@ -35,7 +35,7 @@ async function residentProperty(db: D1Database, userId: string): Promise<string 
   const row = await db
     .prepare(
       `SELECT p.id FROM users u
-       JOIN properties p ON (p.current_resident_id = u.resident_id OR p.owner_id = u.resident_id)
+       JOIN properties p ON (p.current_resident_id = u.resident_id OR p.owner_id = u.resident_id OR p.co_owner_id = u.resident_id)
        WHERE u.id = ? AND p.deleted_at IS NULL AND u.resident_id IS NOT NULL
        LIMIT 1`
     )

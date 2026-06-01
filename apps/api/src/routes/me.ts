@@ -28,7 +28,15 @@ async function getMyPropertyIds(db: any, residentId: string): Promise<string[]> 
     .prepare('SELECT property_id FROM resident_properties WHERE resident_id = ? AND is_active = 1')
     .bind(residentId)
     .all<{ property_id: string }>();
-  return (rows.results || []).map((r: { property_id: string }) => r.property_id);
+  const ids = new Set<string>((rows.results || []).map((r: { property_id: string }) => r.property_id));
+  // Incluir propiedades donde es propietario, copropietario o residente actual
+  // (el copropietario no se sincroniza en resident_properties)
+  const direct = await db
+    .prepare('SELECT id FROM properties WHERE deleted_at IS NULL AND (owner_id = ? OR co_owner_id = ? OR current_resident_id = ?)')
+    .bind(residentId, residentId, residentId)
+    .all<{ id: string }>();
+  for (const r of (direct.results || [])) ids.add(r.id);
+  return Array.from(ids);
 }
 
 me.get('/profile', async (c) => {
