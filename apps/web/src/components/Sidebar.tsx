@@ -17,6 +17,8 @@ import {
   Megaphone,
   UserPlus,
   LifeBuoy,
+  Landmark,
+  Banknote,
   LogOut,
   Menu,
   X
@@ -33,6 +35,8 @@ const navigation = [
   { name: 'Cuotas', desc: 'Mantenimiento mensual', href: '/dashboard/fees', icon: Receipt, roles: ['super_admin', 'admin', 'supervisor'] },
   { name: 'Pagos', desc: 'Registrar y ver pagos', href: '/dashboard/payments', icon: CreditCard, roles: ['super_admin', 'admin', 'supervisor'] },
   { name: 'Caja de la mesa', desc: 'Dinero de cada miembro', href: '/dashboard/mesa', icon: Wallet, roles: ['super_admin', 'admin'] },
+  { name: 'Mesa Directiva', desc: 'Miembros y firmas', href: '/dashboard/mesa-directiva', icon: Landmark, roles: ['super_admin', 'admin'] },
+  { name: 'Pagos en línea', desc: 'Mercado Pago + aprobaciones', href: '/dashboard/configuracion-pagos', icon: Banknote, roles: ['super_admin', 'admin'] },
   { name: 'Solicitudes', desc: 'Reportes de los vecinos', href: '/dashboard/tickets', icon: Ticket, roles: ['super_admin', 'admin', 'supervisor'] },
   { name: 'Terraza', desc: 'Apartados del área común', href: '/dashboard/terraza', icon: CalendarDays, roles: ['super_admin', 'admin', 'supervisor'] },
   { name: 'Boletín', desc: 'Comunicados por correo', href: '/dashboard/boletin', icon: Megaphone, roles: ['super_admin', 'admin'] },

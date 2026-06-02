@@ -3,13 +3,25 @@
 export const runtime = 'edge';
 
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import { STREETS } from '@/lib/streets';
 import { CheckCircle2, Building2 } from 'lucide-react';
 
 export default function SolicitarAccesoPage() {
   const [done, setDone] = useState(false);
+  const [street, setStreet] = useState('');
+  const [houseNumber, setHouseNumber] = useState('');
+
+  const { data: streetsResp } = useQuery({
+    queryKey: ['public-streets'],
+    queryFn: () => apiClient.getPublicStreets(),
+    retry: 1,
+  });
+  // Lista canónica (la misma del formulario "crear casa") + cualquier calle
+  // extra que ya exista en la BD, sin duplicados.
+  const streets = Array.from(new Set<string>([...STREETS, ...(streetsResp?.data || [])]));
 
   const mut = useMutation({
     mutationFn: (data: any) => apiClient.submitAccessRequest(data),
@@ -23,10 +35,15 @@ export default function SolicitarAccesoPage() {
     const full_name = String(fd.get('full_name') || '').trim();
     const email = String(fd.get('email') || '').trim();
     if (!full_name || !email) { toast.error('Pon tu nombre y correo'); return; }
+
+    // Componer "Tu casa": calle (del droplist) + número.
+    const num = houseNumber.trim();
+    const house_label = street ? (num ? `${street} ${num}` : street) : undefined;
+
     mut.mutate({
       full_name, email,
       phone: String(fd.get('phone') || '') || undefined,
-      house_label: String(fd.get('house_label') || '') || undefined,
+      house_label,
       message: String(fd.get('message') || '') || undefined,
     });
   };
@@ -63,14 +80,29 @@ export default function SolicitarAccesoPage() {
               <label className={lbl}>Correo electrónico *</label>
               <input name="email" type="email" required className={inp} placeholder="tucorreo@ejemplo.com" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={lbl}>Teléfono</label>
-                <input name="phone" className={inp} placeholder="33 1234 5678" />
+            <div>
+              <label className={lbl}>Teléfono</label>
+              <input name="phone" className={inp} placeholder="33 1234 5678" />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label className={lbl}>Tu calle</label>
+                <select value={street} onChange={(e) => setStreet(e.target.value)} className={inp}>
+                  <option value="">Selecciona tu calle…</option>
+                  {streets.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
               </div>
               <div>
-                <label className={lbl}>Tu casa</label>
-                <input name="house_label" className={inp} placeholder="Ej: San Gaspar 116" />
+                <label className={lbl}>Número</label>
+                <input
+                  value={houseNumber}
+                  onChange={(e) => setHouseNumber(e.target.value)}
+                  inputMode="numeric"
+                  className={inp}
+                  placeholder="116"
+                />
               </div>
             </div>
             <div>

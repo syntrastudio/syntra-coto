@@ -694,3 +694,114 @@ export async function generateResetToken(): Promise<{ token: string; hash: strin
   const hash = Array.from(new Uint8Array(hashBuf), (b) => b.toString(16).padStart(2, '0')).join('');
   return { token, hash };
 }
+
+// ============================================================================
+// PLANTILLAS — PASARELA DE PAGO (firma múltiple de la mesa)
+// ============================================================================
+
+function accountIdentityBox(args: {
+  account_nickname?: string;
+  account_email?: string;
+  collector_id?: string;
+  mode: string;
+}): string {
+  const modeLabel = args.mode === 'live' ? 'PRODUCCIÓN (dinero real)' : 'PRUEBA (sandbox)';
+  const modeColor = args.mode === 'live' ? '#b45309' : '#1d4ed8';
+  return `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;margin:16px 0;">
+      <tr><td style="padding:16px 20px;">
+        <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">Cuenta de Mercado Pago</div>
+        <div style="font-size:16px;font-weight:600;color:#111827;">${escapeHtml(args.account_nickname || 'Sin alias')}</div>
+        ${args.account_email ? `<div style="font-size:13px;color:#374151;margin-top:2px;">${escapeHtml(args.account_email)}</div>` : ''}
+        ${args.collector_id ? `<div style="font-size:12px;color:#6b7280;margin-top:6px;">ID de cuenta (collector): <strong>${escapeHtml(args.collector_id)}</strong></div>` : ''}
+        <div style="margin-top:10px;"><span style="display:inline-block;font-size:12px;font-weight:700;color:${modeColor};background:#fff;border:1px solid ${modeColor};border-radius:999px;padding:3px 10px;">Modo: ${modeLabel}</span></div>
+      </td></tr>
+    </table>`;
+}
+
+/** Aviso a un miembro de la mesa: se propuso cambiar la cuenta de cobro. */
+export function gatewayProposalHTML(args: {
+  member_name: string;
+  proposer_name: string;
+  account_nickname?: string;
+  account_email?: string;
+  collector_id?: string;
+  mode: string;
+  note?: string;
+  approve_url: string;
+  contact_phone?: string;
+}): string {
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola <strong>${escapeHtml(args.member_name)}</strong>,</p>
+    <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#374151;">
+      <strong>${escapeHtml(args.proposer_name)}</strong> propuso cambiar la <strong>cuenta de Mercado Pago</strong> donde el fraccionamiento recibe los pagos en línea.
+      Este cambio <strong>no surte efecto</strong> hasta que <strong>todos</strong> los miembros de la mesa lo aprueben.
+    </p>
+    ${accountIdentityBox(args)}
+    ${args.note ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#374151;"><em>Nota de quien propone:</em> ${escapeHtml(args.note)}</p>` : ''}
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin:16px 0;">
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#991b1b;">
+        ⚠️ <strong>Si tú no esperabas este cambio, NO lo apruebes</strong> y avisa de inmediato a la mesa.
+        Cambiar la cuenta significa cambiar a dónde llega el dinero de las cuotas.
+      </p>
+    </div>
+    <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#374151;">Revisa los datos y registra tu decisión:</p>`;
+  return emailLayout({
+    title: 'Aprobación requerida: cuenta de cobro',
+    preheader: 'Se propuso cambiar la cuenta de Mercado Pago del fraccionamiento.',
+    content,
+    cta: { label: 'Revisar y aprobar', href: args.approve_url },
+    contactPhone: args.contact_phone,
+  });
+}
+
+/** Aviso: la cuenta fue aprobada por toda la mesa y quedó activa. */
+export function gatewayActivatedHTML(args: {
+  member_name: string;
+  account_nickname?: string;
+  account_email?: string;
+  collector_id?: string;
+  mode: string;
+  activated_by_name: string;
+  contact_phone?: string;
+}): string {
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola <strong>${escapeHtml(args.member_name)}</strong>,</p>
+    <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#374151;">
+      La mesa aprobó <strong>por unanimidad</strong> la nueva cuenta de Mercado Pago y ya quedó <strong>activa</strong>.
+      La última firma fue de <strong>${escapeHtml(args.activated_by_name)}</strong>.
+    </p>
+    ${accountIdentityBox(args)}
+    <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#374151;">
+      A partir de ahora, los pagos en línea de los vecinos llegarán a esta cuenta. Si esto te sorprende, contacta a la mesa.
+    </p>`;
+  return emailLayout({
+    title: 'Cuenta de cobro activada',
+    preheader: 'La nueva cuenta de Mercado Pago fue aprobada por toda la mesa.',
+    content,
+    contactPhone: args.contact_phone,
+  });
+}
+
+/** Aviso: la propuesta de cambio de cuenta fue rechazada. */
+export function gatewayRejectedHTML(args: {
+  member_name: string;
+  account_nickname?: string;
+  rejected_by_name: string;
+  reason?: string;
+  contact_phone?: string;
+}): string {
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola <strong>${escapeHtml(args.member_name)}</strong>,</p>
+    <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#374151;">
+      La propuesta para cambiar la cuenta de Mercado Pago (${escapeHtml(args.account_nickname || 'sin alias')}) fue
+      <strong>rechazada</strong> por <strong>${escapeHtml(args.rejected_by_name)}</strong>. La cuenta de cobro <strong>no cambió</strong>.
+    </p>
+    ${args.reason ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#374151;"><em>Motivo:</em> ${escapeHtml(args.reason)}</p>` : ''}`;
+  return emailLayout({
+    title: 'Cambio de cuenta rechazado',
+    preheader: 'La propuesta de cambio de cuenta fue rechazada.',
+    content,
+    contactPhone: args.contact_phone,
+  });
+}

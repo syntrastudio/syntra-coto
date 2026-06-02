@@ -55,9 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await apiClient.login(credentials as any);
       if (response.success && response.data) {
-        setUser(response.data.user);
-        const role = response.data.user.role;
-        router.push(role === 'resident' ? '/resident' : '/dashboard');
+        const u = response.data.user;
+        setUser(u);
+        if (u.must_change_password) {
+          router.push('/bienvenido');
+        } else {
+          router.push(u.role === 'resident' ? '/resident' : '/dashboard');
+        }
       } else {
         throw new Error('Error al iniciar sesión');
       }

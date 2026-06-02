@@ -221,12 +221,13 @@ export class UsersService {
       .prepare(
         `INSERT INTO users (
           id, email, password_hash, full_name, phone, role, status,
-          resident_id, created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          resident_id, must_change_password, created_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         userId, email, passwordHash, fullName, phone || null,
         input.role, input.status || 'active', residentId,
+        tempPassword ? 1 : 0,
         createdBy, now, now
       )
       .run();
@@ -318,6 +319,29 @@ export class UsersService {
       .bind(...params)
       .run();
 
+    // Mantener en sync el residente vinculado (correo/nombre/teléfono también
+    // viven en `residents`), para que login y vecino nunca queden desfasados.
+    const residentId = (user as any).resident_id as string | null;
+    if (residentId) {
+      const rSync: string[] = [];
+      const rVals: any[] = [];
+      if (input.email) { rSync.push('email = ?'); rVals.push(input.email); }
+      if (input.full_name) { rSync.push('full_name = ?'); rVals.push(input.full_name); }
+      if (input.phone !== undefined) { rSync.push('phone = ?'); rVals.push(input.phone || null); }
+      if (rSync.length > 0) {
+        rSync.push('updated_at = ?');
+        rVals.push(Math.floor(Date.now() / 1000), residentId);
+        try {
+          await this.db
+            .prepare(`UPDATE residents SET ${rSync.join(', ')} WHERE id = ? AND deleted_at IS NULL`)
+            .bind(...rVals)
+            .run();
+        } catch (e) {
+          console.error('[users] no se pudo sincronizar el residente:', e);
+        }
+      }
+    }
+
     return { success: true };
   }
 
@@ -347,7 +371,7 @@ export class UsersService {
     const passwordHash = await hashPassword(newPassword);
 
     await this.db
-      .prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+      .prepare('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?')
       .bind(passwordHash, userId)
       .run();
 

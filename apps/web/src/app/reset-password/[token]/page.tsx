@@ -57,10 +57,18 @@ export default function ResetPasswordPage() {
           </h1>
 
           {done ? (
-            <div className="text-center space-y-3 py-4">
+            <div className="text-center space-y-4 py-4">
               <CheckCircle2 className="h-12 w-12 text-green-600 dark:text-green-400 mx-auto" />
               <p className="text-gray-700 dark:text-gray-300">¡Listo! Tu contraseña fue actualizada.</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Redirigiendo al inicio de sesión...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Ya puedes iniciar sesión con tu nueva contraseña.
+              </p>
+              <Link
+                href="/login"
+                className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg"
+              >
+                Iniciar sesión
+              </Link>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-5">

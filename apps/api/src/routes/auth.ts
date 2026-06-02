@@ -84,6 +84,7 @@ auth.post('/login', zValidator('json', loginSchema), async (c) => {
       full_name: result.user.full_name,
       role: result.user.role,
       status: result.user.status,
+      must_change_password: !!(result.user as any).must_change_password,
     },
     access_token: result.accessToken,
     refresh_token: result.refreshToken,
@@ -302,6 +303,7 @@ auth.get('/me', authMiddleware, async (c) => {
     profile_image_url: fullUser.profile_image_url,
     last_login_at: fullUser.last_login_at,
     created_at: fullUser.created_at,
+    must_change_password: !!(fullUser as any).must_change_password,
   });
 });
 

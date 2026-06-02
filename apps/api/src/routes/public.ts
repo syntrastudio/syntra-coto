@@ -56,6 +56,22 @@ pub.post('/access-request', zValidator('json', requestSchema), async (c) => {
   }
 });
 
+// --- PÚBLICO: calles del fraccionamiento (para el formulario de solicitud) ---
+pub.get('/streets', async (c) => {
+  try {
+    const rows = await c.env.DB
+      .prepare(
+        `SELECT DISTINCT street FROM properties
+         WHERE deleted_at IS NULL AND street IS NOT NULL AND TRIM(street) != ''
+         ORDER BY street`
+      )
+      .all<{ street: string }>();
+    return success(c, (rows.results || []).map((r) => r.street));
+  } catch (e) {
+    return serverError(c, e instanceof Error ? e.message : 'Error');
+  }
+});
+
 // --- ADMIN: ver y gestionar solicitudes ---
 // Incluye detección de duplicados: si el correo o teléfono ya pertenece a un vecino.
 pub.get('/access-requests', authMiddleware, requireRole('admin', 'super_admin'), async (c) => {

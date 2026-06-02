@@ -249,6 +249,27 @@ export async function updateResident(db: D1Database, residentId: string, data: R
     .bind(...values)
     .run();
 
+  // Mantener en sync la cuenta de usuario vinculada (login): el correo de login,
+  // nombre y teléfono viven en `users` y deben coincidir con el residente. Sin
+  // esto, cambiar el correo del vecino dejaba el login (y el reset) con el viejo.
+  const userSync: string[] = [];
+  const userVals: any[] = [];
+  if (data.email !== undefined) { userSync.push('email = ?'); userVals.push(data.email); }
+  if (data.full_name !== undefined) { userSync.push('full_name = ?'); userVals.push(data.full_name); }
+  if (data.phone !== undefined) { userSync.push('phone = ?'); userVals.push(data.phone || null); }
+  if (userSync.length > 0) {
+    userSync.push('updated_at = ?');
+    userVals.push(now, residentId);
+    try {
+      await db
+        .prepare(`UPDATE users SET ${userSync.join(', ')} WHERE resident_id = ? AND deleted_at IS NULL`)
+        .bind(...userVals)
+        .run();
+    } catch (e) {
+      console.error('[residents] no se pudo sincronizar la cuenta de usuario:', e);
+    }
+  }
+
   const updated = await db
     .prepare('SELECT * FROM residents WHERE id = ?')
     .bind(residentId)

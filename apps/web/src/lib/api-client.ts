@@ -24,6 +24,9 @@ import type {
   FeeFilters,
   PaymentFilters,
   VehicleFilters,
+  BoardMember,
+  BoardPosition,
+  GatewayStatus,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://syntra-coto-api.lcdla-scheduler.workers.dev';
@@ -617,6 +620,9 @@ class ApiClient {
   }
 
   // ----- Solicitudes de acceso (interesados) -----
+  async getPublicStreets(): Promise<ApiResponse<string[]>> {
+    return this.request('/api/public/streets');
+  }
   async submitAccessRequest(data: { full_name: string; email: string; phone?: string; house_label?: string; message?: string }): Promise<ApiResponse<any>> {
     return this.request('/api/public/access-request', { method: 'POST', body: JSON.stringify(data) });
   }
@@ -659,6 +665,45 @@ class ApiClient {
     if (opts?.page) params.append('page', String(opts.page));
     if (opts?.limit) params.append('limit', String(opts.limit));
     return this.request(`/api/settings/notifications-log?${params.toString()}`);
+  }
+
+  // ----- Contraseña obligatoria (primer ingreso / tras reset) -----
+  async setInitialPassword(new_password: string): Promise<ApiResponse<{ updated: boolean }>> {
+    return this.request('/api/me/set-password', { method: 'POST', body: JSON.stringify({ new_password }) });
+  }
+
+  // ----- Mesa Directiva -----
+  async getBoardMembers(): Promise<ApiResponse<BoardMember[]>> {
+    return this.request('/api/board');
+  }
+  async getBoardEligibleUsers(): Promise<ApiResponse<Array<{ id: string; full_name: string; email: string; role: string }>>> {
+    return this.request('/api/board/eligible-users');
+  }
+  async addBoardMember(data: { user_id: string; position: BoardPosition; can_approve_gateway?: boolean; term_start?: number | null; term_end?: number | null; notes?: string | null }): Promise<ApiResponse<BoardMember>> {
+    return this.request('/api/board', { method: 'POST', body: JSON.stringify(data) });
+  }
+  async updateBoardMember(id: string, data: Partial<{ position: BoardPosition; can_approve_gateway: boolean; term_start: number | null; term_end: number | null; is_active: boolean; notes: string | null }>): Promise<ApiResponse<BoardMember>> {
+    return this.request(`/api/board/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  async removeBoardMember(id: string): Promise<ApiResponse<null>> {
+    return this.request(`/api/board/${id}`, { method: 'DELETE' });
+  }
+
+  // ----- Pasarela de pago (Mercado Pago) con firma múltiple -----
+  async getGatewayStatus(): Promise<ApiResponse<GatewayStatus>> {
+    return this.request('/api/gateway/status');
+  }
+  async getGatewayProposals(): Promise<ApiResponse<any[]>> {
+    return this.request('/api/gateway/proposals');
+  }
+  async proposeGatewayChange(data: { access_token: string; public_key?: string; webhook_secret?: string; proposer_note?: string }): Promise<ApiResponse<GatewayStatus>> {
+    return this.request('/api/gateway/propose', { method: 'POST', body: JSON.stringify(data) });
+  }
+  async decideGatewayProposal(id: string, decision: 'approve' | 'reject', comment?: string): Promise<ApiResponse<GatewayStatus>> {
+    return this.request(`/api/gateway/proposals/${id}/decide`, { method: 'POST', body: JSON.stringify({ decision, comment }) });
+  }
+  async cancelGatewayProposal(id: string): Promise<ApiResponse<GatewayStatus>> {
+    return this.request(`/api/gateway/proposals/${id}/cancel`, { method: 'POST', body: JSON.stringify({}) });
   }
 }
 

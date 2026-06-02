@@ -7,6 +7,7 @@ export interface User {
   role: 'super_admin' | 'admin' | 'supervisor' | 'resident';
   status: 'active' | 'inactive' | 'suspended';
   email_verified?: boolean;
+  must_change_password?: boolean;
   last_login_at?: number;
   created_at?: number;
   updated_at?: number;
@@ -297,6 +298,81 @@ export interface UpdateVehicleInput {
   license_plate?: string;
   color?: string;
   status?: 'activo' | 'inactivo';
+}
+
+// Tipos de Mesa Directiva
+export type BoardPosition = 'presidente' | 'tesorero' | 'secretario' | 'vocal' | 'suplente';
+
+export interface BoardMember {
+  id: string;
+  user_id: string;
+  position: BoardPosition;
+  can_approve_gateway: number;
+  term_start: number | null;
+  term_end: number | null;
+  is_active: number;
+  notes: string | null;
+  created_at: number;
+  updated_at: number;
+  // join
+  full_name?: string;
+  email?: string;
+  role?: string;
+  user_status?: string;
+}
+
+// Tipos de Pasarela de pago (Mercado Pago) + firma múltiple
+export interface GatewayApproval {
+  user_id: string;
+  full_name?: string;
+  decision: 'approve' | 'reject';
+  comment: string | null;
+  created_at: number;
+  counts: boolean;
+}
+
+export interface GatewayProposal {
+  id: string;
+  mode: 'test' | 'live';
+  account_nickname: string | null;
+  account_email: string | null;
+  account_country: string | null;
+  collector_id: string | null;
+  token_preview: string | null;
+  has_webhook_secret: boolean;
+  status: string;
+  proposer_note: string | null;
+  proposed_by: string;
+  proposed_by_name: string;
+  required_approvals: number;
+  approvals_count: number;
+  expires_at: number | null;
+  created_at: number;
+  approvals: GatewayApproval[];
+  pending_approvers: Array<{ user_id: string; full_name?: string; position: string }>;
+}
+
+export interface GatewayActive {
+  mode: 'test' | 'live';
+  collector_id: string | null;
+  account_nickname: string | null;
+  account_email: string | null;
+  account_country: string | null;
+  token_preview: string | null;
+  has_webhook_secret: boolean;
+  has_public_key: boolean;
+  activated_at: number | null;
+  activated_by_name: string | null;
+}
+
+export interface GatewayStatus {
+  enabled: boolean;
+  min_approvers: number;
+  can_propose: boolean;
+  approvers: Array<{ user_id: string; full_name?: string; email?: string; position: string }>;
+  active: GatewayActive | null;
+  pending: GatewayProposal | null;
+  card_fees: { commission_pct: number; fixed_fee: number; iva_pct: number };
 }
 
 // Made with Bob

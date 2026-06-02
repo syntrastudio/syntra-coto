@@ -6,16 +6,17 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth-context';
-import { Wallet, FileText, Car, User, Save, AlertTriangle, CheckCircle, Ticket, CalendarDays } from 'lucide-react';
+import { Wallet, FileText, Car, User, Save, AlertTriangle, CheckCircle, Ticket, CalendarDays, BookOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { PasskeysSection } from '@/components/PasskeysSection';
 import { TicketsView } from '@/components/TicketsView';
 import { TerraceResidentView } from '@/components/TerraceResidentView';
+import { ReglamentoView } from '@/components/ReglamentoView';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://syntra-coto-api.lcdla-scheduler.workers.dev';
 
-type Tab = 'account' | 'payments' | 'vehicles' | 'terrace' | 'tickets' | 'profile';
+type Tab = 'account' | 'payments' | 'vehicles' | 'terrace' | 'reglamento' | 'tickets' | 'profile';
 
 async function apiGet(path: string, token: string | undefined) {
   const r = await fetch(`${API}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
@@ -49,6 +50,7 @@ export default function ResidentHome() {
     { id: 'payments', label: 'Pagos', icon: FileText },
     { id: 'vehicles', label: 'Vehículos', icon: Car },
     { id: 'terrace', label: 'Terraza', icon: CalendarDays },
+    { id: 'reglamento', label: 'Reglamento', icon: BookOpen },
     { id: 'tickets', label: 'Tickets', icon: Ticket },
     { id: 'profile', label: 'Mi perfil', icon: User },
   ];
@@ -79,6 +81,7 @@ export default function ResidentHome() {
       {tab === 'payments' && <PaymentsTab />}
       {tab === 'vehicles' && <VehiclesTab />}
       {tab === 'terrace' && <TerraceResidentView />}
+      {tab === 'reglamento' && <ReglamentoView />}
       {tab === 'tickets' && <TicketsView mode="resident" />}
       {tab === 'profile' && <ProfileTab />}
     </div>

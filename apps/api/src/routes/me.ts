@@ -99,7 +99,43 @@ me.put('/password', async (c) => {
     if (!ok) return c.json({ success: false, error: 'Contraseña actual incorrecta' }, 400);
     const newHash = await hashPassword(body.new_password);
     await c.env.DB
-      .prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?')
+      .prepare('UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?')
+      .bind(newHash, Math.floor(Date.now() / 1000), userCtx.id)
+      .run();
+    return success(c, { updated: true });
+  } catch (e) {
+    return serverError(c, e instanceof Error ? e.message : 'Error');
+  }
+});
+
+// Establecer contraseña obligatoria (primer ingreso / tras reset de admin).
+// Solo válido si el usuario trae la bandera must_change_password activa; así esto
+// NO sirve para saltarse la verificación de contraseña actual del cambio normal.
+me.post('/set-password', async (c) => {
+  try {
+    const userCtx = c.get('user')!;
+    const body = await c.req.json<{ new_password: string }>().catch(() => ({} as any));
+    const pwd = String(body.new_password || '');
+    if (pwd.length < 8 || !/[A-Z]/.test(pwd) || !/[0-9]/.test(pwd)) {
+      return c.json(
+        { success: false, error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula y un número' },
+        400
+      );
+    }
+    const user = await c.env.DB
+      .prepare('SELECT must_change_password FROM users WHERE id = ? AND deleted_at IS NULL')
+      .bind(userCtx.id)
+      .first<{ must_change_password: number }>();
+    if (!user) return notFound(c, 'Usuario');
+    if (!user.must_change_password) {
+      return c.json(
+        { success: false, error: 'Tu contraseña ya está establecida. Cámbiala desde tu perfil.' },
+        400
+      );
+    }
+    const newHash = await hashPassword(pwd);
+    await c.env.DB
+      .prepare('UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?')
       .bind(newHash, Math.floor(Date.now() / 1000), userCtx.id)
       .run();
     return success(c, { updated: true });

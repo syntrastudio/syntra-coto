@@ -112,7 +112,7 @@ users.post('/', requireRole('admin', 'super_admin'), async (c) => {
     // Si se generó password temporal, enviarlo por correo
     let emailStatus: { sent: boolean; skipped?: boolean; reason?: string } | null = null;
     if (result.tempPassword && result.email && result.fullName) {
-      const loginUrl = c.env.APP_URL || 'https://syntra-coto.pages.dev/login';
+      const loginUrl = ((c.env.APP_URL || c.env.FRONTEND_URL || 'https://coto.syntrastudio.dev').replace(/\/+$/, '').replace(/\/login$/i, '')) + '/login';
       const contactPhone = await c.env.DB
         .prepare("SELECT value FROM system_settings WHERE key = 'contact_phone'")
         .first<{ value: string }>();
@@ -226,12 +226,15 @@ users.post('/:id/reset-password', requireRole('admin', 'super_admin'), async (c)
       return c.json(errorResponse(result.error || 'Error al restablecer contraseña'), 400);
     }
 
+    // Forzar que el usuario establezca su propia contraseña al ingresar.
+    await c.env.DB.prepare('UPDATE users SET must_change_password = 1 WHERE id = ?').bind(userId).run();
+
     // Enviar correo con la contraseña + notificación de cambio
     let emailStatus: { sent: boolean; skipped?: boolean; reason?: string } | null = null;
     const shouldSend = body.send_email !== false;
     if (shouldSend) {
       const { sendEmail, passwordResetByAdminHTML, passwordChangedNoticeHTML } = await import('../utils/email');
-      const loginUrl = c.env.APP_URL || 'https://syntra-coto.pages.dev/login';
+      const loginUrl = ((c.env.APP_URL || c.env.FRONTEND_URL || 'https://coto.syntrastudio.dev').replace(/\/+$/, '').replace(/\/login$/i, '')) + '/login';
       const contactRow = await c.env.DB
         .prepare("SELECT value FROM system_settings WHERE key = 'contact_phone'")
         .first<{ value: string }>();
@@ -243,11 +246,11 @@ users.post('/:id/reset-password', requireRole('admin', 'super_admin'), async (c)
           full_name: target.full_name,
           email: target.email,
           temp_password: newPassword,
-          login_url: loginUrl + '/login',
+          login_url: loginUrl,
           admin_name: currentUser.full_name,
           contact_phone: contactRow?.value || undefined,
         }),
-        text: `Hola ${target.full_name},\n\n${currentUser.full_name || 'Un administrador'} restableció tu contraseña.\nUsuario: ${target.email}\nNueva contraseña: ${newPassword}\n\nIngresa en: ${loginUrl}/login\n\nTe recomendamos cambiarla en cuanto ingreses.`,
+        text: `Hola ${target.full_name},\n\n${currentUser.full_name || 'Un administrador'} restableció tu contraseña.\nUsuario: ${target.email}\nNueva contraseña: ${newPassword}\n\nIngresa en: ${loginUrl}\n\nTe recomendamos cambiarla en cuanto ingreses.`,
       });
 
       // Notificación adicional de "tu contraseña cambió" (best effort, no bloquea)
